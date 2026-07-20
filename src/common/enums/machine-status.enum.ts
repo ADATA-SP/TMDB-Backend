@@ -1,0 +1,11 @@
+export enum MachineStatus {
+	EXECUTE = 'EXECUTE',
+	PAUSING = 'PAUSING',
+	INIT = 'INIT',
+	IDLE = 'IDLE',
+	READY = 'READY',
+	EXECUTING = 'EXECUTING',
+	PAUSE = 'PAUSE',
+	PAUSED = 'PAUSED',
+	ALARM = 'ALARM',
+}

@@ -1,0 +1,17 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, MaxLength, MinLength } from 'class-validator';
+
+export class SearchAccountNameDto {
+	@ApiProperty({
+		required: true,
+		type: 'string',
+	})
+	@IsString()
+	@MinLength(3, {
+		message: 'O campo username requer no mínimo 3 caracteres!',
+	})
+	@MaxLength(100, {
+		message: 'O campo username requer no máximo 100 caracteres!',
+	})
+	identifier: string;
+}

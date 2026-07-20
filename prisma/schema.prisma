@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id               Int       @id @default(autoincrement())
+  name             String    @db.Text
+  username         String?   @unique(map: "USERS_username_IDX") @db.VarChar(100)
+  email            String?   @unique(map: "USERS_email_IDX") @db.VarChar(100)
+  password         String?   @db.VarChar(255)
+  status           Int       @default(1) @db.TinyInt
+  path_image       String?   @db.VarChar(255)
+  created_at       DateTime? @default(now()) @db.DateTime
+  updated_at       DateTime? @default(now()) @db.DateTime
+  ldap_crendential Int?      @default(0) @db.TinyInt
+
+  @@map("users")
+}
