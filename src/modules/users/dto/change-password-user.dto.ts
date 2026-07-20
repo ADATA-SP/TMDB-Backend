@@ -6,7 +6,7 @@ import {
 	MaxLength,
 	MinLength,
 } from 'class-validator';
-import { PasswordConfirm } from 'src/common/validators';
+import { PasswordConfirm } from '../../../common/validators';
 
 export class ChangePasswordUserDto {
 	@ApiProperty({

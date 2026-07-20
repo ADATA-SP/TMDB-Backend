@@ -4,11 +4,11 @@ import {
 	Injectable,
 	NotFoundException,
 } from '@nestjs/common';
-import { LdapService } from 'src/ldap/ldap.service';
+import { LdapService } from '../ldap/ldap.service';
 import { SignInDto } from './dto/signin.dto';
-import { UserPayloadProps } from 'src/common/types';
-import { UsersRepository } from 'src/modules/users/users.repository';
-import signToken from 'src/common/functions/sign-token.function';
+import { UserPayloadProps } from '../common/types';
+import { UsersRepository } from '../modules/users/users.repository';
+import signToken from '../common/functions/sign-token.function';
 import { JwtService } from '@nestjs/jwt';
 import { AuthUserProps, Tokens } from './types';
 import * as bcrypt from 'bcryptjs';
@@ -28,12 +28,12 @@ export class AuthenticationService {
 
 		if (!userExists)
 			throw new NotFoundException({
-				message: 'Usuário  não encontrado no RMS!',
+				message: 'Usuário  não encontrado no TMDB!',
 			});
 
 		if (!userExists.status)
 			throw new ForbiddenException({
-				message: 'Usuário desativado no RMS',
+				message: 'Usuário desativado no TMDB',
 			});
 
 		if (signInDto.connect_ldap) {

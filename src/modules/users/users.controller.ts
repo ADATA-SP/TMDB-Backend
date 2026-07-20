@@ -14,16 +14,16 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SearchAccountNameDto } from './dto/search-user.dto';
-import { ApiPaginatedResponse } from 'src/common/decorators/api-paginate-response.decorator';
+import { ApiPaginatedResponse } from '../../common/decorators/api-paginate-response.decorator';
 import { ListInputUserDto, ListOutputUserDto } from './dto/list-user.dto';
-import { PaginateOutputDto } from 'src/common/dto/paginate-output.dto';
+import { PaginateOutputDto } from '../../common/dto/paginate-output.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ChangePasswordUserDto } from './dto/change-password-user.dto';
-import { GetCurrentUser } from 'src/common/decorators';
+import { GetCurrentUser } from '../../common/decorators';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserPayloadProps } from 'src/common/types';
-import { PermissionGuard } from 'src/common/guards';
-import { OperationsModule } from 'src/common/constants';
+import { UserPayloadProps } from '../../common/types';
+import { PermissionGuard } from '../../common/guards';
+import { OperationsModule } from '../../common/constants';
 
 @Controller('users')
 @ApiTags('Users')

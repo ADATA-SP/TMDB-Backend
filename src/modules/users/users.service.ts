@@ -4,17 +4,17 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { PrismaService } from 'src/database/prisma.service';
-import { LdapService } from 'src/ldap/ldap.service';
+import { PrismaService } from '../../database/prisma.service';
+import { LdapService } from '../../ldap/ldap.service';
 import { SearchAccountNameDto } from './dto/search-user.dto';
 import { UsersRepository } from './users.repository';
 import { ListInputUserDto, ListOutputUserDto } from './dto/list-user.dto';
 import { createPaginator } from 'prisma-pagination';
 import { Prisma as PrismaType } from '.prisma/client';
 import { ChangePasswordUserDto } from './dto/change-password-user.dto';
-import { hashData } from 'src/common/functions';
+import { hashData } from '../../common/functions';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserPayloadProps } from 'src/common/types';
+import { UserPayloadProps } from '../../common/types';
 
 @Injectable()
 export class UsersService {
@@ -220,7 +220,7 @@ export class UsersService {
 
 		if (!validateUser)
 			throw new NotFoundException({
-				message: 'Usuário  não identificado no RMS',
+				message: 'Usuário  não identificado no TMDB',
 			});
 
 		const encryptPassword = await hashData(changePasswordDto.password);

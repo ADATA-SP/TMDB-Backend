@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { AuthUserProps } from 'src/authentication/types';
+import { AuthUserProps } from '../../authentication/types';
 
 function doExpiresIn(expiresIn: string): number {
 	const typeOfTime = expiresIn.match(/(\d{1,3})([hmd])/);

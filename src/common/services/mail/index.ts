@@ -21,7 +21,7 @@ export class EmailService {
 			to: email,
 			from: process.env.MAIL_FROM,
 			subject: subject,
-			text: 'RMS-2',
+			text: 'TMDB-2',
 			template: `${template}.template.hbs`,
 			context: {
 				...message,

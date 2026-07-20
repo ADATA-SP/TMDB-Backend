@@ -1,6 +1,6 @@
 import { BullModule } from '@nestjs/bull';
 import { Global, Module } from '@nestjs/common';
-import { EmailService } from 'src/common/services';
+import { EmailService } from '../../../common/services';
 import { QueueEmailProcessor } from './queue-mail.processor';
 
 @Global()

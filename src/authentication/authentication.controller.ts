@@ -2,8 +2,8 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SignInDto } from './dto/signin.dto';
-import { AuthToken, GetCurrentUser, Public } from 'src/common/decorators';
-import { UserPayloadProps } from 'src/common/types';
+import { AuthToken, GetCurrentUser, Public } from '../common/decorators';
+import { UserPayloadProps } from '../common/types';
 
 @Controller('authentication')
 @ApiTags('Authentication')

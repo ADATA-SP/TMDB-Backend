@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
-import { PaginateInputDto } from 'src/common/dto/paginate-input.dto';
+import { PaginateInputDto } from '../../../common/dto/paginate-input.dto';
 
 export class ListOutputUserDto {
 	id: number;
