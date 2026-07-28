@@ -16,4 +16,3 @@ export function parseXlsx(buffer: Buffer): any[] {
 		return normalized;
 	});
 }
-

@@ -1,12 +1,5 @@
-import { Transform, Type } from 'class-transformer';
-import {
-	IsArray,
-	IsDate,
-	IsEnum,
-	IsInt,
-	IsOptional,
-	IsString,
-} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 
 export enum ExportType {
 	PDF = 'pdf',
@@ -19,7 +12,6 @@ export class ExportDto {
 	})
 	type: ExportType = ExportType.PDF;
 
-	@IsOptional()
 	@IsOptional()
 	@IsString()
 	start?: string;

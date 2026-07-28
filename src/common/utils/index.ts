@@ -27,7 +27,7 @@ export class Utils {
 		}
 
 		const [datePart] = dateString.split('T');
-		const [year, month, day] = datePart.split('-').map(Number);
+		const [year] = datePart.split('-').map(Number);
 
 		if (year < 1000 || year > 9999) {
 			throw new BadRequestException(

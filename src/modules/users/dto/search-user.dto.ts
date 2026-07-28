@@ -5,6 +5,9 @@ export class SearchAccountNameDto {
 	@ApiProperty({
 		required: true,
 		type: 'string',
+		description:
+			'Nome de conta a ser pesquisado no diretório LDAP (sAMAccountName).',
+		example: 'usuario.exemplo',
 	})
 	@IsString()
 	@MinLength(3, {

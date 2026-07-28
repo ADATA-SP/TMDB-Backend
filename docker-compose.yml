@@ -1,44 +1,11 @@
-version: '3.8'
-
 services:
     app:
         build:
             context: .
             dockerfile: .build/Dockerfile
-        volumes:
-            - .:/app
+            target: development
+        env_file:
+            - .env
         ports:
-            - '3001:3001'
-        environment:
-            NODE_ENV: development
-            DATABASE_URL: 'sqlserver://172.100.11.112:1434;database=adata_tmdb_dev;user={tmdbdevapp};password={apptmdb@2025};encrypt=true;trustServerCertificate=true'
-            APP_ENV: 'local'
-            APP_PORT: '3001'
-            APP_VERSION: 'TMDB Backend v1.0.0'
-
-            CORS_ORIGIN: '*'
-            CORS_METHODS: 'GET,HEAD,PUT,PATCH,POST,DELETE'
-            CORS_PREFLIGHT: 'false'
-            CORS_SUSS_STATUS: '204'
-
-            SWAGGER_TITLE: 'TMDB'
-            SWAGGER_DESCRIPTION: 'TMDB - Documentation'
-            SWAGGER_VERSION: '1.0'
-            SWAGGER_ENDPOINT: 'swagger'
-            SWAGGER_API_URL: 'http://localhost:3001'
-
-            JWT_AT_SECRET: 'at-secret'
-            JWT_AT_EXPIRES: '12h'
-
-            LDAP_SERVER: 'ldap://172.100.10.48:389'
-            LDAP_BASE: 'DC=conecthus,DC=ORG,DC=BR'
-            LDAP_USER: 'qwsadata'
-            LDAP_PASSWORD: 'nEdaswixo@23'
-            LDAP_ATTRIBUTE: 'sAMAccountName'
-
-            MAIL_HOST: 'smtp.office365.com'
-            MAIL_PORT: '587'
-            MAIL_TEXT: 'simip'
-            MAIL_FROM: 'no-reply@conecthus.org.br'
-            MAIL_AUTH_USER: 'no-reply@conecthus.org.br'
-            MAIL_AUTH_PASS: 'itbam*2023'
+            - '${APP_PORT:-3001}:${APP_PORT:-3001}'
+        restart: unless-stopped

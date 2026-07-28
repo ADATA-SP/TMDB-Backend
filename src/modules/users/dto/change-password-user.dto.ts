@@ -12,6 +12,8 @@ export class ChangePasswordUserDto {
 	@ApiProperty({
 		required: true,
 		type: 'string',
+		description: 'Nome de conta do usuário que terá a senha alterada.',
+		example: 'usuario.exemplo',
 	})
 	@IsNotEmpty({
 		message: 'Campo username não pode estar vazio',
@@ -31,6 +33,9 @@ export class ChangePasswordUserDto {
 		default: '123456',
 		required: true,
 		type: 'string',
+		description:
+			'Confirmação da nova senha. Deve ser idêntica ao campo password.',
+		example: 'Senha@2026',
 	})
 	@IsNotEmpty({
 		message: 'Campo  não pode estar vazio!',
@@ -45,6 +50,8 @@ export class ChangePasswordUserDto {
 		default: '123456',
 		required: true,
 		type: 'string',
+		description: 'Nova senha do usuário.',
+		example: 'Senha@2026',
 	})
 	@IsNotEmpty({
 		message: 'Campo não pode estar vazio!',

@@ -7,7 +7,8 @@ export class PaginateInputDto {
 		required: true,
 		default: 1,
 		type: 'number',
-		description: 'Page number',
+		description: 'Número da página a ser retornada, iniciando em 1.',
+		example: 1,
 	})
 	@IsNotEmpty({
 		message: 'Campo  não pode estar vazio!',
@@ -20,7 +21,8 @@ export class PaginateInputDto {
 		required: true,
 		default: 8,
 		type: 'number',
-		description: 'Number of records per page',
+		description: 'Quantidade de registros por página.',
+		example: 8,
 	})
 	@Transform(({ value }) => Number(value))
 	@IsNotEmpty({

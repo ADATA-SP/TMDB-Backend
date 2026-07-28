@@ -24,7 +24,7 @@ export class UsersService {
 		private readonly usersRepository: UsersRepository,
 	) {}
 
-	async create(createUserDto: CreateUserDto, currentUser: UserPayloadProps) {
+	async create(createUserDto: CreateUserDto, _currentUser: UserPayloadProps) {
 		// const userValidationLdap = await this.ldapService.searchUsers({
 		// 	identifier: createUserDto.username,
 		// });
@@ -66,7 +66,7 @@ export class UsersService {
 	async update(
 		updateUserDto: UpdateUserDto,
 		user_id: number,
-		currentUser: UserPayloadProps,
+		_currentUser: UserPayloadProps,
 	) {
 		const userExists = await this.prismaService.users.findFirst({
 			where: { id: user_id },
@@ -81,7 +81,7 @@ export class UsersService {
 			where: { email: updateUserDto.email },
 		});
 
-		if (emailExists.id != user_id)
+		if (emailExists && emailExists.id != user_id)
 			throw new BadRequestException({
 				message: 'E-mail de usuário já cadastrado',
 			});

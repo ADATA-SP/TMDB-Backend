@@ -5,6 +5,8 @@ export class SignInDto {
 	@ApiProperty({
 		required: true,
 		type: 'string',
+		description: 'Nome de conta do usuário cadastrado no TMDB.',
+		example: 'admin',
 	})
 	@IsNotEmpty({
 		message: 'Campo username não pode estar vazio',
@@ -15,6 +17,9 @@ export class SignInDto {
 	@ApiProperty({
 		required: true,
 		type: 'string',
+		description:
+			'Senha do usuário. Quando connect_ldap for true, corresponde à senha do domínio.',
+		example: 'admin',
 	})
 	@IsNotEmpty({
 		message: 'Campo password não pode estar vazio',
@@ -26,7 +31,9 @@ export class SignInDto {
 		required: true,
 		type: 'boolean',
 		default: false,
-		description: 'Define se deve conectar no LDAP. true ou false',
+		description:
+			'Define a origem da validação da senha: true valida no LDAP, false valida na base local.',
+		example: false,
 	})
 	@IsBoolean({
 		message:
