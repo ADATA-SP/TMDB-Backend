@@ -4,14 +4,14 @@ stages:
   - notification
 
 variables:
-  IMAGE_URL: "registry.adata.com/$CI_PROJECT_PATH"
+  IMAGE_URL: "registry-sao.adata.com/$CI_PROJECT_PATH"
   BASE_SERVICE_NAME: "tmdb_backend"
 
 
 .build_template: &build_definition
   stage: build
   tags:
-    - manaus
+    - saopaulo
   script:
     - docker build -t $IMAGE_URL:$CI_COMMIT_BRANCH -f .adata/Dockerfile .
     - docker push $IMAGE_URL:$CI_COMMIT_BRANCH
