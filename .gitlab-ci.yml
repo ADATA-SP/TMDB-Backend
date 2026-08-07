@@ -1,66 +1,102 @@
 stages:
-  - test
+  - build
   - deploy
+  - notification
 
-análise de código fonte:
-  stage: test
-  variables:
-    SONAR_USER_HOME: '${CI_PROJECT_DIR}/.sonar'
-    GIT_DEPTH: '0'
-  cache:
-    key: '${CI_JOB_NAME}'
-    paths:
-      - .sonar/cache
+variables:
+  IMAGE_URL: "registry.adata.com/$CI_PROJECT_PATH"
+  BASE_SERVICE_NAME: "tmdb_backend"
+
+
+.build_template: &build_definition
+  stage: build
+  tags:
+    - manaus
   script:
-    - sonar-scanner
-      -Dsonar.projectKey=$SONAR_PROJECT_KEY
-      -Dsonar.qualitygate.wait=true
-      -Dsonar.host.url=$SONAR_HOST_URL
-      -Dsonar.sources=.
-      -Dsonar.projectBaseDir=.
-      -Dsonar.sourceEncoding=UTF-8
-      -Dsonar.scm.provider=git
-      -Dsonar.exclusions=node_modules
-      -Dsonar.test.exclusions=node_modules
-      -Dsonar.cpd.exclusions=node_modules
-      -Dsonar.token=$SONAR_TOKEN
-      -Dsonar.projectName=$CI_PROJECT_PATH
+    - docker build -t $IMAGE_URL:$CI_COMMIT_BRANCH -f .adata/Dockerfile .
+    - docker push $IMAGE_URL:$CI_COMMIT_BRANCH
   allow_failure: false
-  only:
-    - main
 
-deploy amb. de desenvolvimento:
-  variables:
-    REPO_ENV: 'dev'
+
+build dev:
+  <<: *build_definition
+  only: [dev]
+
+build test:
+  <<: *build_definition
+  only: [test]
+
+build prod:
+  <<: *build_definition
+  only: [prod]
+
+# 2. Deploy Script Dinâmico
+deploy:
   stage: deploy
   script:
-    - git clone https://$GL_USER:$GL_TOKEN@gitlab.conecthus.org.br/environment/cicd.git
-    - docker buildx build --build-arg NODE_ENV=$REPO_ENV -t "$REGISTRY_HOST_URL/$CI_PROJECT_PATH:$REPO_ENV" -f ./cicd/Dockerfile.node22.18.pnpm.nest --push .
-    - ds-updater $CI_PROJECT_PATH:$REPO_ENV
-  allow_failure: false
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "prod" ]; then
+        SERVER=$SERVER_MAO_PROD
+        SERVICE_NAME="$BASE_SERVICE_NAME"
+      else
+        SERVER=$SERVER_MAO_TST
+        SERVICE_NAME="$CI_COMMIT_BRANCH-$BASE_SERVICE_NAME"
+      fi
+      FULL_IMAGE_TAG="$IMAGE_URL:$CI_COMMIT_BRANCH"
+      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_MAO@$SERVER"
+
+      echo "Iniciando deploy no ambiente $CI_COMMIT_BRANCH (Serviço: $SERVICE_NAME)"
+
+      PULLED_IMAGE=$(eval "$SSH_CMD \"docker pull $FULL_IMAGE_TAG\"")
+      UPDATE_IMAGE=$(eval "$SSH_CMD \"docker service update --detach=false --with-registry-auth --force --image $FULL_IMAGE_TAG $SERVICE_NAME\"")
+
+      eval "$SSH_CMD \"~/app/scripts/ds-updater-sucess.sh \\\"$PULLED_IMAGE\\\" \\\"$UPDATE_IMAGE\\\"\""
   only:
     - dev
-
-deploy amb. de teste:
-  variables:
-    REPO_ENV: 'test'
-  stage: deploy
-  script:
-    - git clone https://$GL_USER:$GL_TOKEN@gitlab.conecthus.org.br/environment/cicd.git
-    - docker buildx build --build-arg NODE_ENV=$REPO_ENV -t "$REGISTRY_HOST_URL/$CI_PROJECT_PATH:$REPO_ENV" -f ./cicd/Dockerfile.node22.18.pnpm.nest --push .
-    - ds-updater $CI_PROJECT_PATH:$REPO_ENV
-  allow_failure: false
-  only:
     - test
+    - prod
 
-deploy amb. de produção:
-  variables:
-    REPO_ENV: 'main'
+deploy falha:
   stage: deploy
   script:
-    - git clone https://$GL_USER:$GL_TOKEN@gitlab.conecthus.org.br/environment/cicd.git
-    - docker buildx build --build-arg NODE_ENV=$REPO_ENV -t "$REGISTRY_HOST_URL/$CI_PROJECT_PATH:$REPO_ENV" -f ./cicd/Dockerfile.node22.18.pnpm.nest --push .
-    - ds-updater $CI_PROJECT_PATH:$REPO_ENV
-  allow_failure: false
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "prod" ]; then
+        SERVER=$SERVER_MAO_PROD
+        SERVICE_NAME="$BASE_SERVICE_NAME"
+      else
+        SERVER=$SERVER_MAO_TST
+        SERVICE_NAME="$CI_COMMIT_BRANCH-$BASE_SERVICE_NAME"
+      fi
+      FULL_IMAGE_TAG="$IMAGE_URL:$CI_COMMIT_BRANCH"
+      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_MAO@$SERVER"
+
+      MSG_FAILURE=$(echo $FULL_IMAGE_TAG $SERVICE_NAME)
+      eval "$SSH_CMD \"~/app/scripts/ds-updater-failure.sh $MSG_FAILURE\""
+  when: on_failure
   only:
-    - main
+    - dev
+    - test
+    - prod
+
+
+notificação sucesso email:
+  stage: notification
+  script:
+    - PROJECT_NAME=$(echo $CI_PROJECT_NAMESPACE | cut -d'/' -f2)
+    - domain="$(echo $PROJECT_NAME-$CI_COMMIT_BRANCH | sed 's/-main$//')"
+    - sendmail "$GITLAB_USER_LOGIN" "$GITLAB_USER_EMAIL" "[passed] $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME@$CI_COMMIT_BRANCH" "Olá $GITLAB_USER_LOGIN, seu deploy foi realizado com sucesso, seu ambiente ficará disponível em alguns instantes, o ambiente está em https://$domain.adata.com/api"
+  when: on_success
+  only:
+    - prod
+    - test
+    - dev
+
+notificação falha email:
+  stage: notification
+  script:
+    - sendmail "$GITLAB_USER_LOGIN" "$GITLAB_USER_EMAIL" "[failed] $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME@$CI_COMMIT_BRANCH" "Olá $GITLAB_USER_LOGIN, não foi possível realizar o seu deploy. Verifique o log da pipeline para mais informações, qualquer problema entre em contato com luiz.vieira@adata.com"
+  when: on_failure
+  only:
+    - prod
+    - test
+    - dev
