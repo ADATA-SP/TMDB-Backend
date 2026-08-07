@@ -36,14 +36,14 @@ deploy:
   script:
     - |
       if [ "$CI_COMMIT_BRANCH" == "prod" ]; then
-        SERVER=$SERVER_MAO_PROD
+        SERVER=$SERVER_SAO_PROD
         SERVICE_NAME="$BASE_SERVICE_NAME"
       else
-        SERVER=$SERVER_MAO_TST
+        SERVER=$SERVER_SAO_TST
         SERVICE_NAME="$CI_COMMIT_BRANCH-$BASE_SERVICE_NAME"
       fi
       FULL_IMAGE_TAG="$IMAGE_URL:$CI_COMMIT_BRANCH"
-      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_MAO@$SERVER"
+      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_SAO@$SERVER"
 
       echo "Iniciando deploy no ambiente $CI_COMMIT_BRANCH (Serviço: $SERVICE_NAME)"
 
@@ -61,14 +61,14 @@ deploy falha:
   script:
     - |
       if [ "$CI_COMMIT_BRANCH" == "prod" ]; then
-        SERVER=$SERVER_MAO_PROD
+        SERVER=$SERVER_SAO_PROD
         SERVICE_NAME="$BASE_SERVICE_NAME"
       else
-        SERVER=$SERVER_MAO_TST
+        SERVER=$SERVER_SAO_TST
         SERVICE_NAME="$CI_COMMIT_BRANCH-$BASE_SERVICE_NAME"
       fi
       FULL_IMAGE_TAG="$IMAGE_URL:$CI_COMMIT_BRANCH"
-      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_MAO@$SERVER"
+      SSH_CMD="ssh -o StrictHostKeyChecking=no -i /home/gitlab-runner/.ssh/id_ed25519 -p $(echo $SSH_PORT | sed 's/[^0-9]*//g') $USER_SAO@$SERVER"
 
       MSG_FAILURE=$(echo $FULL_IMAGE_TAG $SERVICE_NAME)
       eval "$SSH_CMD \"~/app/scripts/ds-updater-failure.sh $MSG_FAILURE\""
