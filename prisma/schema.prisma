@@ -77,6 +77,90 @@ model profile_operation {
   @@map("profile_operation")
 }
 
+model machines {
+  id           Int       @id @default(autoincrement())
+  description  String    @db.VarChar(100)
+  code         String    @db.VarChar(45)
+  ip_address   String?   @db.VarChar(45)
+  port_address String?   @db.VarChar(45)
+  status       Int       @default(1) @db.TinyInt
+  created_at   DateTime? @default(now()) @db.DateTime
+  updated_at   DateTime? @default(now()) @db.DateTime
+  machine_type String    @db.VarChar(100)
+  localization String    @db.VarChar(100)
+  is_blocked   Int       @default(0) @db.TinyInt
+  routes       routes[]
+
+  @@map("machines")
+}
+
+model routes {
+  id          Int       @id @default(autoincrement())
+  description String    @db.VarChar(55)
+  status      Int       @default(1) @db.TinyInt
+  created_at  DateTime? @default(now()) @db.DateTime
+  updated_at  DateTime? @default(now()) @db.DateTime
+  machine_id  Int?
+  machines    machines? @relation(fields: [machine_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "routes_machines_FK")
+
+  @@map("routes")
+}
+
+model routines {
+  id                       Int              @id @default(autoincrement())
+  type                     String           @default("RUN")
+  created_at               DateTime?        @default(now()) @db.DateTime
+  updated_at               DateTime?        @default(now()) @db.DateTime
+  machine_id               Int
+  delay_execution          Int              @default(5) @db.TinyInt
+  description              String?          @db.VarChar(170)
+  validate_recipe_success  Int              @default(1) @db.TinyInt
+  ignore_recipe_validation Int?             @db.TinyInt
+  routine_action           routine_action[]
+  reason_code              reason_code[]
+
+  @@map("routines")
+}
+
+model actions {
+  id             Int              @id @default(autoincrement())
+  description    String?          @db.VarChar(105)
+  command        String           @db.Text
+  created_at     DateTime?        @default(now()) @db.DateTime
+  updated_at     DateTime?        @default(now()) @db.DateTime
+  name           String?          @db.VarChar(80)
+  machine_type   String?          @db.VarChar(100)
+  routine_action routine_action[]
+
+  @@map("actions")
+}
+
+model routine_action {
+  routine_id Int
+  action_id  Int
+  position   Int       @db.TinyInt
+  created_at DateTime? @default(now()) @db.DateTime
+  updated_at DateTime? @default(now()) @db.DateTime
+  actions    actions   @relation(fields: [action_id], references: [id], onUpdate: NoAction, map: "routine_action_actions_FK")
+  routines   routines  @relation(fields: [routine_id], references: [id], onUpdate: NoAction, map: "routine_action_routines_FK")
+
+  @@id([routine_id, action_id], map: "routine_action_pk")
+  @@map("routine_action")
+}
+
+model reason_code {
+  id         Int       @id @default(autoincrement())
+  code       String    @db.NVarChar(20)
+  ignored    Int       @default(1)
+  created_at DateTime? @default(now()) @db.DateTime
+  updated_at DateTime? @default(now()) @db.DateTime
+  routine_id Int
+  routines   routines? @relation(fields: [routine_id], references: [id], map: "reason_code_routines_FK")
+
+  @@unique([code, routine_id])
+  @@map("reason_code")
+}
+
 model audit_log {
   id          Int       @id @default(autoincrement())
   type        String?   @db.VarChar(50)

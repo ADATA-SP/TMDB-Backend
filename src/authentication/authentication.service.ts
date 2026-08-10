@@ -59,17 +59,30 @@ export class AuthenticationService {
 				});
 		}
 
+		const operations = userExists.profiles?.profile_operation?.map(
+			(op) => op.operations.identifier,
+		);
+
 		const tokens = await this.getTokens({
 			id: userExists?.id,
 			email: userExists?.email,
 			username: userExists?.username,
 			name: userExists?.name,
 			status: userExists?.status,
+			profile_id: userExists?.profile_id,
+			profile_identifier: userExists?.profiles?.identifier,
+			operations: operations,
 		});
 
-		delete userExists.password;
+		const payloadUser = {
+			...userExists,
+			profile_description: userExists?.profiles?.description,
+		};
 
-		return { ...userExists, ...tokens };
+		delete payloadUser.password;
+		delete payloadUser.profiles;
+
+		return { ...payloadUser, ...tokens };
 	}
 
 	async whoami(currentUser: UserPayloadProps, token: string) {
@@ -80,10 +93,19 @@ export class AuthenticationService {
 		if (!userLogged)
 			throw new NotFoundException({ message: 'Usuário  não encontrado' });
 
-		delete userLogged.password;
+		const payloadUser = {
+			...userLogged,
+			profile_description: userLogged?.profiles?.description,
+			operations: userLogged.profiles?.profile_operation?.map(
+				(op) => op.operations.identifier,
+			),
+		};
+
+		delete payloadUser.password;
+		delete payloadUser.profiles;
 
 		return {
-			...userLogged,
+			...payloadUser,
 			token,
 		};
 	}
