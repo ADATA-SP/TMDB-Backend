@@ -33,7 +33,8 @@ export class AuthenticationController {
 			'Valida as credenciais informadas e retorna os dados do usuário acompanhados do token de acesso e do token de renovação. A senha é verificada no LDAP quando connect_ldap for true, ou na base local quando false. Rota pública, limitada a 5 tentativas por minuto.',
 	})
 	@ApiOkResponse({
-		description: 'Autenticação concluída.',
+		description:
+			'Autenticação concluída. O token carrega as operações do perfil do usuário, utilizadas pelo controle de permissões.',
 		schema: {
 			example: {
 				id: 1,
@@ -46,6 +47,7 @@ export class AuthenticationController {
 				updated_at: '2026-07-28T16:30:00.000Z',
 				ldap_crendential: 0,
 				profile_id: 1,
+				profile_description: 'Administrador',
 				token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
 				refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
 			},
@@ -106,7 +108,7 @@ export class AuthenticationController {
 			'Recupera o cadastro do usuário associado ao token informado no cabeçalho Authorization, devolvendo o mesmo token na resposta.',
 	})
 	@ApiOkResponse({
-		description: 'Dados do usuário autenticado.',
+		description: 'Dados do usuário autenticado e suas operações liberadas.',
 		schema: {
 			example: {
 				id: 1,
@@ -119,6 +121,16 @@ export class AuthenticationController {
 				updated_at: '2026-07-28T16:30:00.000Z',
 				ldap_crendential: 0,
 				profile_id: 1,
+				profile_description: 'Administrador',
+				operations: [
+					'create-users',
+					'edit-users',
+					'show-users',
+					'notify-users',
+					'delete-users',
+					'edit-permissions',
+					'show-permissions',
+				],
 				token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
 			},
 		},

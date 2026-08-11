@@ -145,9 +145,16 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 
 | Variável                       | Descrição                  |
 | ------------------------------ | -------------------------- |
+| `ENABLE_MES`                   | `true` consulta a API do MES; `false` usa a lista local de exemplo |
 | `MES_API_URL`                  | URL da API do MES          |
+| `MES_API_USER`                 | Usuário da API do MES      |
+| `MES_API_PASSWORD`             | Senha da API do MES        |
 | `DATA_COLLECTION_API_URL`      | URL da API do Data Collection |
 | `DATA_COLLECTION_BFF_API_URL`  | URL do BFF do Data Collection |
+| `DATA_COLLECTION_API_USER`     | Usuário do Data Collection |
+| `DATA_COLLECTION_API_PASSWORD` | Senha do Data Collection   |
+
+> Com `ENABLE_MES=false`, o `GET /machines/mes` responde a partir de `src/common/mocks/machines.ts`, sem depender da API do MES. É o modo indicado para desenvolvimento.
 
 
 ### 4. Aplicar as migrações do banco
@@ -166,11 +173,23 @@ npx prisma migrate dev
 
 ### 5. Popular os dados iniciais (seed)
 
-Cria o usuário administrador padrão (`admin` / `admin`):
-
 ```bash
 npx prisma db seed
 ```
+
+O seed monta toda a cadeia de controle de acesso:
+
+| Registro | Conteúdo |
+| --- | --- |
+| `modules` | `users`, `machines` e `permissions` |
+| `operations` | 11 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
+| `profiles` | Perfil `admin` (Administrador) |
+| `profile_operation` | Vincula **todas** as operações ao perfil `admin` |
+| `users` | Usuário `admin` / senha `admin`, associado ao perfil `admin` |
+
+O seed é idempotente e também **repara** um admin já existente que esteja sem `profile_id`.
+
+> Ao implementar novos módulos, acrescente o módulo e suas operações em `modulesDataQuery` no [seed.ts](prisma/seeders/seed.ts) e rode o seed novamente — as operações novas são vinculadas ao perfil `admin` automaticamente.
 
 ### 6. Executar a aplicação
 
@@ -361,6 +380,40 @@ src/
 | `PATCH`| `/profiles/:id/change-status` | Ativa/inativa perfil            |
 | `DELETE`| `/profiles/:id`              | Remove perfil                   |
 
+### Máquinas
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/machines` | Lista máquinas (paginado) |
+| `GET` | `/machines/:id` | Detalha máquina |
+| `GET` | `/machines/select` | Lista `{id, code}` para campos de seleção |
+| `GET` | `/machines/mes` | Máquinas do MES cruzadas com o cadastro local |
+| `POST` | `/machines` | Cadastra máquina |
+| `POST` | `/machines/mes` | Sincroniza máquinas em lote a partir do MES |
+| `PATCH` | `/machines/:id` | Atualiza máquina |
+| `PATCH` | `/machines/:id/change-status` | Ativa/inativa máquina |
+| `DELETE` | `/machines/:id` | Exclusão lógica (`is_blocked = 1`) |
+
+### Configuração de máquinas
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/configuration/routines` | Lista rotinas com ações e códigos de motivo |
+| `GET` | `/configuration/routines/types` | Estados do MES que disparam rotinas |
+| `GET` | `/configuration/routines/:id` | Detalha rotina |
+| `POST` | `/configuration/routines` | Cria rotina |
+| `POST` | `/configuration/routines/execute-command` | Executa a rotina na máquina |
+| `PATCH` | `/configuration/routines/:id` | Atualiza rotina |
+| `DELETE` | `/configuration/routines/:id` | Remove rotina |
+| `GET` | `/configuration/actions` | Lista ações |
+| `POST` | `/configuration/actions` | Cria ação |
+| `PATCH` | `/configuration/actions/:id` | Atualiza ação |
+| `DELETE` | `/configuration/actions/:id` | Remove ação |
+| `PATCH` | `/configuration/routines-action` | Define as ações da rotina e sua ordem |
+| `GET` | `/configuration/reason-code` | Lista códigos de motivo |
+| `PATCH` | `/configuration/reason-code/:id` | Atualiza código de motivo |
+| `DELETE` | `/configuration/reason-code/:code?routine_id=` | Remove código da rotina |
+
 A lista completa e atualizada fica disponível no Swagger.
 
 ## Autenticação
@@ -368,6 +421,18 @@ A lista completa e atualizada fica disponível no Swagger.
 O `AtGuard` é registrado como guard global (`APP_GUARD`), então **todas as rotas exigem um Bearer token JWT por padrão**. Para expor uma rota publicamente, use o decorator `@Public()`.
 
 No Swagger, use o botão **Authorize** (esquema `JWT-auth`) e informe o token retornado pelo `/authentication/sign-in`. O token fica persistido entre recarregamentos da página.
+
+### Permissões
+
+Além do `AtGuard`, a maioria das rotas usa o `PermissionGuard`, que compara a operação exigida com a lista `operations` gravada no JWT. A cadeia é:
+
+```
+users.profile_id → profiles → profile_operation → operations.identifier
+```
+
+O login carrega essa cadeia e grava os identificadores no token. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
+
+Credenciais padrão após o seed: `admin` / `admin`, com as 11 operações liberadas.
 
 ## Segurança
 

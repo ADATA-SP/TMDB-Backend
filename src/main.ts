@@ -71,6 +71,23 @@ async function bootstrap() {
 		)
 		.addTag('Users', 'Cadastro de usuários e integração com o LDAP.')
 		.addTag('Profiles', 'Cadastro dos perfis de acesso.')
+		.addTag('Machines', 'Cadastro de máquinas e sincronização com o MES.')
+		.addTag(
+			'Configuration / Routines',
+			'Rotinas executadas nas máquinas conforme o estado no MES.',
+		)
+		.addTag(
+			'Configuration / Actions',
+			'Comandos que podem ser enviados às máquinas.',
+		)
+		.addTag(
+			'Configuration / Routine Action',
+			'Vínculo entre rotinas e ações, com a ordem de execução.',
+		)
+		.addTag(
+			'Configuration / Reason Codes',
+			'Códigos de motivo associados às rotinas.',
+		)
 		.addBearerAuth(
 			{
 				type: 'http',
