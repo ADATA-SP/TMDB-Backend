@@ -51,13 +51,21 @@ export class MachinesController {
 	@ApiOperation({
 		summary: 'Sincroniza máquinas a partir do MES',
 		description:
-			'Importa em lote a lista de máquinas informada. Registros já existentes são atualizados e desbloqueados; os demais são criados.',
+			'Importa em lote a lista de máquinas informada. Registros já existentes são atualizados e desbloqueados; os demais são criados. Quando ENABLE_RMS_IMPORT for true, as rotinas e ações da máquina são copiadas do RMS logo após a sincronização, apenas para máquinas que ainda não possuam rotinas no TMDB. Falhas na comunicação com o RMS não interrompem a sincronização.',
 	})
 	@ApiCreatedResponse({
-		description: 'Sincronização concluída.',
-		type: MessageResponseDto,
+		description:
+			'Sincronização concluída. O campo rms_import resume a cópia de rotinas do RMS: imported são as máquinas que receberam rotinas, skipped as que já tinham rotinas ou não foram encontradas no RMS, e failed as que apresentaram erro.',
 		schema: {
-			example: { message: 'Máquinas sincronizadas com sucesso' },
+			example: {
+				message: 'Máquinas sincronizadas com sucesso',
+				rms_import: {
+					enabled: true,
+					imported: 1,
+					skipped: 1,
+					failed: 0,
+				},
+			},
 		},
 	})
 	createMes(@Body() createMachineListDto: CreateMachineListDto) {

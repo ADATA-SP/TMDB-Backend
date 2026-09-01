@@ -153,6 +153,10 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 | `DATA_COLLECTION_BFF_API_URL`  | URL do BFF do Data Collection |
 | `DATA_COLLECTION_API_USER`     | Usuário do Data Collection |
 | `DATA_COLLECTION_API_PASSWORD` | Senha do Data Collection   |
+| `ENABLE_RMS_IMPORT`            | `true` importa rotinas do RMS ao sincronizar máquinas |
+| `RMS_API_URL`                  | URL base da API do RMS     |
+| `RMS_API_USER`                 | Usuário de serviço no RMS  |
+| `RMS_API_PASSWORD`             | Senha do usuário de serviço |
 
 > Com `ENABLE_MES=false`, o `GET /machines/mes` responde a partir de `src/common/mocks/machines.ts`, sem depender da API do MES. É o modo indicado para desenvolvimento.
 
@@ -393,6 +397,37 @@ src/
 | `PATCH` | `/machines/:id` | Atualiza máquina |
 | `PATCH` | `/machines/:id/change-status` | Ativa/inativa máquina |
 | `DELETE` | `/machines/:id` | Exclusão lógica (`is_blocked = 1`) |
+
+#### Importação de rotinas do RMS
+
+Ao sincronizar máquinas (`POST /machines/mes`), o TMDB consulta o RMS e copia as rotinas, ações e códigos de motivo já configurados lá, evitando recadastro manual.
+
+O fluxo, para cada máquina sincronizada:
+
+1. Localiza a máquina no RMS pelo `code`
+2. Busca as rotinas dessa máquina, com as ações aninhadas
+3. Cria as rotinas no TMDB, reaproveitando ações existentes (mesmo `name` + `description`) e preservando a ordem de execução e os códigos de motivo
+
+Três regras governam o comportamento:
+
+| Situação | Resultado |
+| --- | --- |
+| Máquina já possui rotinas no TMDB | **Ignorada** — nunca sobrescreve ajuste manual |
+| Máquina sem par no RMS, ou sem rotinas lá | Ignorada |
+| RMS indisponível ou com erro | A sincronização **conclui normalmente**; a falha é registrada no log e contabilizada |
+
+A resposta traz um resumo:
+
+```json
+{
+	"message": "Máquinas sincronizadas com sucesso",
+	"rms_import": { "enabled": true, "imported": 1, "skipped": 1, "failed": 0 }
+}
+```
+
+Para desligar a importação, defina `ENABLE_RMS_IMPORT="false"` — a sincronização de máquinas segue funcionando normalmente.
+
+> A integração é somente de leitura: o TMDB consome `GET /machines/select`, `GET /configuration/routines` e `GET /configuration/reason-code` do RMS, sem alterar nada lá.
 
 ### Configuração de máquinas
 
