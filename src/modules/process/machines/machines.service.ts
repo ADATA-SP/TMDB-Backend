@@ -23,6 +23,7 @@ import { machineData } from '../../../common/mocks/machines';
 import { QueryPaginationDto } from '../../../common/dto/pagination-data.dto';
 import { CreateMachineListDto } from './dto/create-machine-mes.dto';
 import { MesSystemService } from '../mes-system/mes-system.service';
+import { MachinesImportService } from './machines-import.service';
 
 @Injectable()
 export class MachinesService {
@@ -32,6 +33,7 @@ export class MachinesService {
 		private readonly auditLogRepository: AuditLogRepository,
 		private readonly notificationRepository: NotificationRepository,
 		private readonly mesSystemService: MesSystemService,
+		private readonly machinesImportService: MachinesImportService,
 	) {}
 
 	async create(
@@ -364,8 +366,14 @@ export class MachinesService {
 			},
 		);
 
+		const rmsImport =
+			await this.machinesImportService.importRoutinesFromRms(
+				createMachineListDto.items.map((item) => item.code),
+			);
+
 		return {
 			message: 'Máquinas sincronizadas com sucesso',
+			rms_import: rmsImport,
 		};
 	}
 
