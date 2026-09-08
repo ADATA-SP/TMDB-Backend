@@ -14,6 +14,11 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { UsersModule } from './modules/users/users.module';
 import { ProfilesModule } from './modules/access-control/profiles/profiles.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { MachinesModule } from './modules/process/machines/machines.module';
+import { RoutineModule } from './modules/configuration/routines/routine.module';
+import { ActionModule } from './modules/configuration/actions/action.module';
+import { RoutineActionModule } from './modules/configuration/routine-action/routine-action.module';
+import { ReasonCodeModule } from './modules/configuration/reason-code/reason-code.module';
 
 @Module({
 	imports: [
@@ -67,6 +72,11 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 		AuthenticationModule,
 		UsersModule,
 		ProfilesModule,
+		MachinesModule,
+		RoutineModule,
+		ActionModule,
+		RoutineActionModule,
+		ReasonCodeModule,
 	],
 	controllers: [AppController],
 	providers: [

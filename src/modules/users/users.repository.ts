@@ -1,5 +1,3 @@
-// src/user/user.repository.ts
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -10,6 +8,13 @@ export class UsersRepository {
 	async findByUsername(username: string) {
 		return this.prismaService.users.findFirst({
 			where: { username },
+			include: {
+				profiles: {
+					include: {
+						profile_operation: { include: { operations: true } },
+					},
+				},
+			},
 		});
 	}
 }
