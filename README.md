@@ -145,9 +145,20 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 
 | Variável                       | Descrição                  |
 | ------------------------------ | -------------------------- |
+| `ENABLE_MES`                   | `true` consulta a API do MES; `false` usa a lista local de exemplo |
 | `MES_API_URL`                  | URL da API do MES          |
+| `MES_API_USER`                 | Usuário da API do MES      |
+| `MES_API_PASSWORD`             | Senha da API do MES        |
 | `DATA_COLLECTION_API_URL`      | URL da API do Data Collection |
 | `DATA_COLLECTION_BFF_API_URL`  | URL do BFF do Data Collection |
+| `DATA_COLLECTION_API_USER`     | Usuário do Data Collection |
+| `DATA_COLLECTION_API_PASSWORD` | Senha do Data Collection   |
+| `ENABLE_RMS_IMPORT`            | `true` importa rotinas do RMS ao sincronizar máquinas |
+| `RMS_API_URL`                  | URL base da API do RMS     |
+| `RMS_API_USER`                 | Usuário de serviço no RMS  |
+| `RMS_API_PASSWORD`             | Senha do usuário de serviço |
+
+> Com `ENABLE_MES=false`, o `GET /machines/mes` responde a partir de `src/common/mocks/machines.ts`, sem depender da API do MES. É o modo indicado para desenvolvimento.
 
 
 ### 4. Aplicar as migrações do banco
@@ -166,11 +177,23 @@ npx prisma migrate dev
 
 ### 5. Popular os dados iniciais (seed)
 
-Cria o usuário administrador padrão (`admin` / `admin`):
-
 ```bash
 npx prisma db seed
 ```
+
+O seed monta toda a cadeia de controle de acesso:
+
+| Registro | Conteúdo |
+| --- | --- |
+| `modules` | `users`, `machines`, `notifications`, `change-log` e `permissions` |
+| `operations` | 13 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
+| `profiles` | Perfil `admin` (Administrador) |
+| `profile_operation` | Vincula **todas** as operações ao perfil `admin` |
+| `users` | Usuário `admin` / senha `admin`, associado ao perfil `admin` |
+
+O seed é idempotente e também **repara** um admin já existente que esteja sem `profile_id`.
+
+> Ao implementar novos módulos, acrescente o módulo e suas operações em `modulesDataQuery` no [seed.ts](prisma/seeders/seed.ts) e rode o seed novamente — as operações novas são vinculadas ao perfil `admin` automaticamente.
 
 ### 6. Executar a aplicação
 
@@ -249,13 +272,9 @@ docker compose down -v
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (`node dist/main`, sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
+Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
 
-As migrations não são aplicadas automaticamente aqui — rode-as de forma controlada no deploy:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app npx prisma migrate deploy
-```
+Ao iniciar, o container executa `npx prisma migrate deploy` antes de `node dist/main`, então as migrations pendentes são aplicadas automaticamente a cada deploy. Se a migration falhar, a aplicação não sobe.
 
 ### Testar
 
@@ -267,22 +286,22 @@ http://localhost:3001/swagger
 
 ### Estágios da imagem
 
-O `.build/Dockerfile` é multi-stage:
+O `.adata/Dockerfile` é multi-stage:
 
 | Estágio       | Uso                                                                 |
 | ------------- | ------------------------------------------------------------------- |
 | `deps`        | Instala as dependências (camada reaproveitada em cache)             |
 | `development` | Dependências completas + `npm run start:dev`                        |
 | `build`       | Gera o `dist` com `npm run build`                                   |
-| `production`  | Apenas dependências de produção + `dist` + `node dist/main`         |
+| `production`  | Dependências de produção + `dist`; aplica as migrations e sobe a app |
 
 Para gerar a imagem de produção manualmente:
 
 ```bash
-docker build -f .build/Dockerfile --target production -t tmdb-backend .
+docker build -f .adata/Dockerfile --target production -t tmdb-backend .
 ```
 
-> O pipeline do GitLab não usa este Dockerfile — ele constrói a imagem a partir do `Dockerfile.node22.18.pnpm.nest` do repositório `environment/cicd`. O `.build/Dockerfile` serve ao uso local e a builds manuais.
+> É este mesmo Dockerfile que o pipeline do GitLab usa para gerar a imagem publicada. O `ts-node` fica em `dependencies`, e não em `devDependencies`, o que permite executar `npx prisma db seed` dentro do container de produção — o seed não roda sozinho no deploy.
 
 > O `QueueMailModule` registra a fila do Bull sem um `BullModule.forRoot()`, então a conexão cai no padrão `localhost:6379`. Não há serviço de Redis no compose: dentro do container esse endereço aponta para o próprio container e a fila fica em erro de conexão. Para usar a fila de e-mails será preciso configurar o Redis explicitamente.
 
@@ -304,8 +323,9 @@ docker build -f .build/Dockerfile --target production -t tmdb-backend .
 ## Estrutura do projeto
 
 ```
-.build/
-  Dockerfile           # imagem multi-stage (development / build / production)
+.adata/
+  Dockerfile           # imagem multi-stage (development / build / production), usada também pelo CI
+.gitlab-ci.yml         # pipeline de build, deploy e notificação
 
 docker-compose.yml           # base
 docker-compose.override.yml  # desenvolvimento (app + banco em container)
@@ -361,6 +381,100 @@ src/
 | `PATCH`| `/profiles/:id/change-status` | Ativa/inativa perfil            |
 | `DELETE`| `/profiles/:id`              | Remove perfil                   |
 
+### Permissões por perfil
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/modules` | Módulos ativos com as operações que cada um oferece |
+| `GET` | `/profile-operation` | Matriz atual: perfis ativos e suas operações |
+| `POST` | `/profile-operation` | Substitui as operações dos perfis informados |
+
+O `POST /profile-operation` recebe uma lista e **troca integralmente** as operações de cada perfil:
+
+```json
+[{ "identifier": "admin", "operations": ["show-users", "edit-users"] }]
+```
+
+Perfis não encontrados pelo `identifier` e operações inexistentes são ignorados, sem erro. Como as permissões viajam dentro do JWT, a alteração só vale para o usuário **após um novo login**.
+
+### Notificações e registro de alterações
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/notification-log` | Histórico de notificações (paginado) |
+| `GET` | `/notification-log/reports?type=pdf\|excel` | Exporta o histórico completo |
+| `GET` | `/change-log` | Trilha de auditoria das alterações (paginado) |
+| `GET` | `/change-log/reports?type=pdf\|excel` | Exporta a trilha completa |
+
+Ambas as listagens aceitam filtro por `description` e por período (`start` / `end`, no formato `YYYY-MM-DD` ou `YYYY-MM-DDTHH:mm`), e vêm ordenadas do mais recente para o mais antigo, já com o nome do usuário resolvido.
+
+Os registros são gravados pelos próprios módulos de negócio, através do `AuditLogRepository` e do `NotificationRepository` — por exemplo, cadastrar ou editar uma máquina gera uma linha em cada um.
+
+### Máquinas
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/machines` | Lista máquinas (paginado) |
+| `GET` | `/machines/:id` | Detalha máquina |
+| `GET` | `/machines/select` | Lista `{id, code}` para campos de seleção |
+| `GET` | `/machines/mes` | Máquinas do MES cruzadas com o cadastro local |
+| `POST` | `/machines` | Cadastra máquina |
+| `POST` | `/machines/mes` | Sincroniza máquinas em lote a partir do MES |
+| `PATCH` | `/machines/:id` | Atualiza máquina |
+| `PATCH` | `/machines/:id/change-status` | Ativa/inativa máquina |
+| `DELETE` | `/machines/:id` | Exclusão lógica (`is_blocked = 1`) |
+
+#### Importação de rotinas do RMS
+
+Ao sincronizar máquinas (`POST /machines/mes`), o TMDB consulta o RMS e copia as rotinas, ações e códigos de motivo já configurados lá, evitando recadastro manual.
+
+O fluxo, para cada máquina sincronizada:
+
+1. Localiza a máquina no RMS pelo `code`
+2. Busca as rotinas dessa máquina, com as ações aninhadas
+3. Cria as rotinas no TMDB, reaproveitando ações existentes (mesmo `name` + `description`) e preservando a ordem de execução e os códigos de motivo
+
+Três regras governam o comportamento:
+
+| Situação | Resultado |
+| --- | --- |
+| Máquina já possui rotinas no TMDB | **Ignorada** — nunca sobrescreve ajuste manual |
+| Máquina sem par no RMS, ou sem rotinas lá | Ignorada |
+| RMS indisponível ou com erro | A sincronização **conclui normalmente**; a falha é registrada no log e contabilizada |
+
+A resposta traz um resumo:
+
+```json
+{
+	"message": "Máquinas sincronizadas com sucesso",
+	"rms_import": { "enabled": true, "imported": 1, "skipped": 1, "failed": 0 }
+}
+```
+
+Para desligar a importação, defina `ENABLE_RMS_IMPORT="false"` — a sincronização de máquinas segue funcionando normalmente.
+
+> A integração é somente de leitura: o TMDB consome `GET /machines/select`, `GET /configuration/routines` e `GET /configuration/reason-code` do RMS, sem alterar nada lá.
+
+### Configuração de máquinas
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/configuration/routines` | Lista rotinas com ações e códigos de motivo |
+| `GET` | `/configuration/routines/types` | Estados do MES que disparam rotinas |
+| `GET` | `/configuration/routines/:id` | Detalha rotina |
+| `POST` | `/configuration/routines` | Cria rotina |
+| `POST` | `/configuration/routines/execute-command` | Executa a rotina na máquina |
+| `PATCH` | `/configuration/routines/:id` | Atualiza rotina |
+| `DELETE` | `/configuration/routines/:id` | Remove rotina |
+| `GET` | `/configuration/actions` | Lista ações |
+| `POST` | `/configuration/actions` | Cria ação |
+| `PATCH` | `/configuration/actions/:id` | Atualiza ação |
+| `DELETE` | `/configuration/actions/:id` | Remove ação |
+| `PATCH` | `/configuration/routines-action` | Define as ações da rotina e sua ordem |
+| `GET` | `/configuration/reason-code` | Lista códigos de motivo |
+| `PATCH` | `/configuration/reason-code/:id` | Atualiza código de motivo |
+| `DELETE` | `/configuration/reason-code/:code?routine_id=` | Remove código da rotina |
+
 A lista completa e atualizada fica disponível no Swagger.
 
 ## Autenticação
@@ -368,6 +482,18 @@ A lista completa e atualizada fica disponível no Swagger.
 O `AtGuard` é registrado como guard global (`APP_GUARD`), então **todas as rotas exigem um Bearer token JWT por padrão**. Para expor uma rota publicamente, use o decorator `@Public()`.
 
 No Swagger, use o botão **Authorize** (esquema `JWT-auth`) e informe o token retornado pelo `/authentication/sign-in`. O token fica persistido entre recarregamentos da página.
+
+### Permissões
+
+Além do `AtGuard`, a maioria das rotas usa o `PermissionGuard`, que compara a operação exigida com a lista `operations` gravada no JWT. A cadeia é:
+
+```
+users.profile_id → profiles → profile_operation → operations.identifier
+```
+
+O login carrega essa cadeia e grava os identificadores no token. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
+
+Credenciais padrão após o seed: `admin` / `admin`, com as 13 operações liberadas.
 
 ## Segurança
 
@@ -393,13 +519,18 @@ Para desabilitar o Swagger em produção, defina `SWAGGER_ENABLED="false"`.
 
 ## CI/CD
 
-O pipeline do GitLab (`.gitlab-ci.yml`) possui dois estágios:
+O pipeline do GitLab (`.gitlab-ci.yml`) roda nas branches `dev`, `test` e `prod`, em três estágios:
 
-- **test** — análise de código com SonarQube (apenas na branch `main`)
-- **deploy** — build da imagem e atualização do serviço, por ambiente:
+| Estágio | O que faz |
+| --- | --- |
+| `build` | Gera a imagem com `.adata/Dockerfile` e publica em `registry-sao.adata.com/<projeto>:<branch>` |
+| `deploy` | Via SSH, baixa a imagem e atualiza o serviço Docker Swarm do ambiente |
+| `notification` | Envia e-mail ao autor do push com o resultado do deploy |
 
-| Branch | Ambiente        |
-| ------ | --------------- |
-| `dev`  | Desenvolvimento |
-| `test` | Teste           |
-| `main` | Produção        |
+| Branch | Ambiente | Serviço |
+| ------ | -------- | ------- |
+| `dev`  | Desenvolvimento | `dev-tmdb_backend` |
+| `test` | Teste | `test-tmdb_backend` |
+| `prod` | Produção | `tmdb_backend` |
+
+Como o container aplica `prisma migrate deploy` ao iniciar, toda migration presente na branch é executada no banco do ambiente durante o deploy.
