@@ -32,6 +32,25 @@ const modulesDataQuery = [
 		],
 	},
 	{
+		description: 'Notificações',
+		slug: 'notifications',
+		status: 1,
+		operations: [
+			{ description: 'Visualizar Notificações', identifier: 'show' },
+		],
+	},
+	{
+		description: 'Registro de Alterações',
+		slug: 'change-log',
+		status: 1,
+		operations: [
+			{
+				description: 'Visualizar Registro de Alterações',
+				identifier: 'show',
+			},
+		],
+	},
+	{
 		description: 'Permissões',
 		slug: 'permissions',
 		status: 1,

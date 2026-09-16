@@ -71,6 +71,16 @@ async function bootstrap() {
 		)
 		.addTag('Users', 'Cadastro de usuários e integração com o LDAP.')
 		.addTag('Profiles', 'Cadastro dos perfis de acesso.')
+		.addTag('Modules', 'Módulos do sistema e as operações que oferecem.')
+		.addTag(
+			'Profile Operation',
+			'Matriz de permissões: operações liberadas por perfil.',
+		)
+		.addTag(
+			'Notification Log',
+			'Histórico de notificações geradas pelo sistema.',
+		)
+		.addTag('Change Log', 'Trilha de auditoria das alterações de cadastro.')
 		.addTag('Machines', 'Cadastro de máquinas e sincronização com o MES.')
 		.addTag(
 			'Configuration / Routines',
