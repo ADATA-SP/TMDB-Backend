@@ -1,4 +1,4 @@
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 
 export function findManyAuditQuery(
 	whereClause: PrismaType.audit_logWhereInput = {},

@@ -4,7 +4,7 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { ListInputReasonCodeDto } from './dto/list-reason-code.dto';
 import { UpdateReasonCodeDto } from './dto/update-reason-code.dto';
 

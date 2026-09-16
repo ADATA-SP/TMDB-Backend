@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { CreateRoutineActionDto } from './dto/create-routine-action.dto';
 import { ListInputRoutineActionDto } from './dto/list-routine-action.dto';
 
