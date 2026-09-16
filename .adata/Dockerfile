@@ -21,9 +21,10 @@ RUN npm run build
 FROM base AS production
 ENV NODE_ENV=production
 RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+COPY tsconfig.json ./
 COPY prisma ./prisma
 RUN npx prisma generate
 COPY assets ./assets
 COPY --from=build /app/dist ./dist
 EXPOSE 3001
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main"]

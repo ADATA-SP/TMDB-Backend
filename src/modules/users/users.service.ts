@@ -10,7 +10,7 @@ import { SearchAccountNameDto } from './dto/search-user.dto';
 import { UsersRepository } from './users.repository';
 import { ListInputUserDto, ListOutputUserDto } from './dto/list-user.dto';
 import { createPaginator } from 'prisma-pagination';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { ChangePasswordUserDto } from './dto/change-password-user.dto';
 import { hashData } from '../../common/functions';
 import { UpdateUserDto } from './dto/update-user.dto';

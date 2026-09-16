@@ -76,6 +76,7 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 | `APP_ENV`     | `local`                 |
 | `APP_PORT`    | `3001`                  |
 | `APP_VERSION` | `TMDB Backend v1.0.0`   |
+| `SEED_ADMIN_PASSWORD` | Senha do admin criado por `npm run seed:admin` (padrão: `admin`) |
 
 #### CORS
 
@@ -177,23 +178,39 @@ npx prisma migrate dev
 
 ### 5. Popular os dados iniciais (seed)
 
+Os dados iniciais são divididos em duas partes:
+
 ```bash
-npx prisma db seed
+npx prisma db seed        # catálogo de permissões
+npm run seed:admin        # usuário admin
 ```
 
-O seed monta toda a cadeia de controle de acesso:
+**Catálogo de permissões** ([seed.ts](prisma/seeders/seed.ts), com a lógica em [catalog.ts](prisma/seeders/catalog.ts)) — roda automaticamente a cada deploy:
 
 | Registro | Conteúdo |
 | --- | --- |
 | `modules` | `users`, `machines`, `notifications`, `change-log` e `permissions` |
 | `operations` | 13 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
 | `profiles` | Perfil `admin` (Administrador) |
-| `profile_operation` | Vincula **todas** as operações ao perfil `admin` |
-| `users` | Usuário `admin` / senha `admin`, associado ao perfil `admin` |
+| `profile_operation` | Operações liberadas para o perfil `admin` |
 
-O seed é idempotente e também **repara** um admin já existente que esteja sem `profile_id`.
+Ele só **acrescenta**; nunca remove nem altera registros existentes. As operações são vinculadas ao perfil `admin` em dois casos:
 
-> Ao implementar novos módulos, acrescente o módulo e suas operações em `modulesDataQuery` no [seed.ts](prisma/seeders/seed.ts) e rode o seed novamente — as operações novas são vinculadas ao perfil `admin` automaticamente.
+- quando o perfil `admin` é criado, recebe todas as operações;
+- quando uma operação nova é criada, ela é vinculada ao `admin`.
+
+Uma operação retirada do `admin` pela tela continua retirada nos deploys seguintes.
+
+**Usuário admin** ([create-admin.ts](prisma/seeders/create-admin.ts)) — **manual**, uma vez por ambiente:
+
+| Situação | Resultado |
+| --- | --- |
+| `admin` não existe | Cria com a senha de `SEED_ADMIN_PASSWORD`, ou `admin` se a variável não estiver definida |
+| `admin` já existe | Não altera a senha; apenas garante o vínculo com o perfil `admin` |
+
+O script também executa o catálogo antes, então funciona mesmo num banco recém-migrado.
+
+> Ao implementar novos módulos, acrescente o módulo e suas operações em `modulesDataQuery` no [catalog.ts](prisma/seeders/catalog.ts). No próximo deploy, as operações novas são criadas e liberadas para o perfil `admin`.
 
 ### 6. Executar a aplicação
 
@@ -246,10 +263,10 @@ Como o Compose carrega o `docker-compose.override.yml` sozinho, esse comando já
 O `app` só inicia depois que o `db` fica **healthy** (`depends_on` com `condition: service_healthy`), e o comando do container é:
 
 ```
-npx prisma migrate deploy && npx prisma db seed && npm run start:dev
+npx prisma migrate deploy && npx prisma db seed && npm run seed:admin && npm run start:dev
 ```
 
-Ou seja: no ambiente de desenvolvimento as migrations e o seed **rodam automaticamente** a cada subida. O banco é criado pelo próprio `migrate deploy` e o seed é idempotente (`upsert`), então repetir não causa efeito colateral. Na primeira subida a aplicação já nasce com a tabela `users` e o admin criado.
+Ou seja: no ambiente de desenvolvimento as migrations, o catálogo de permissões e o usuário admin **são aplicados automaticamente** a cada subida. O banco é criado pelo próprio `migrate deploy`, e os dois seeds podem rodar repetidas vezes sem efeito colateral. Na primeira subida a aplicação já nasce com o admin (`admin` / `admin`) e todas as permissões.
 
 Para acessar o banco do container direto:
 
@@ -272,13 +289,9 @@ docker compose down -v
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (`node dist/main`, sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
+Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
 
-As migrations não são aplicadas automaticamente aqui — rode-as de forma controlada no deploy:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app npx prisma migrate deploy
-```
+Ao iniciar, o container executa `npx prisma migrate deploy` antes de `node dist/main`, então as migrations pendentes são aplicadas automaticamente a cada deploy. Se a migration falhar, a aplicação não sobe.
 
 ### Testar
 
@@ -290,22 +303,34 @@ http://localhost:3001/swagger
 
 ### Estágios da imagem
 
-O `.build/Dockerfile` é multi-stage:
+O `.adata/Dockerfile` é multi-stage:
 
 | Estágio       | Uso                                                                 |
 | ------------- | ------------------------------------------------------------------- |
 | `deps`        | Instala as dependências (camada reaproveitada em cache)             |
 | `development` | Dependências completas + `npm run start:dev`                        |
 | `build`       | Gera o `dist` com `npm run build`                                   |
-| `production`  | Apenas dependências de produção + `dist` + `node dist/main`         |
+| `production`  | Dependências de produção + `dist`; aplica as migrations e sobe a app |
 
 Para gerar a imagem de produção manualmente:
 
 ```bash
-docker build -f .build/Dockerfile --target production -t tmdb-backend .
+docker build -f .adata/Dockerfile --target production -t tmdb-backend .
 ```
 
-> O pipeline do GitLab não usa este Dockerfile — ele constrói a imagem a partir do `Dockerfile.node22.18.pnpm.nest` do repositório `environment/cicd`. O `.build/Dockerfile` serve ao uso local e a builds manuais.
+> É este mesmo Dockerfile que o pipeline do GitLab usa para gerar a imagem publicada. Ao subir, o container executa `npx prisma migrate deploy && npx prisma db seed && node dist/main`: aplica as migrations e o catálogo de permissões, nessa ordem, e só então inicia a aplicação. Se qualquer etapa falhar, a aplicação não sobe.
+>
+> O `ts-node` fica em `dependencies`, e o `tsconfig.json` é copiado para a imagem: os dois são necessários para os seeds rodarem no container de produção.
+
+#### Primeiro deploy em um ambiente novo
+
+O deploy cria as tabelas e as permissões, mas **não cria nenhum usuário**. Depois do primeiro deploy, crie o admin uma única vez:
+
+```bash
+docker exec -e SEED_ADMIN_PASSWORD='<senha-forte>' <container_do_tmdb_backend> npm run seed:admin
+```
+
+Sem a `SEED_ADMIN_PASSWORD`, a senha fica `admin` — nesse caso, troque-a antes de liberar o ambiente.
 
 > O `QueueMailModule` registra a fila do Bull sem um `BullModule.forRoot()`, então a conexão cai no padrão `localhost:6379`. Não há serviço de Redis no compose: dentro do container esse endereço aponta para o próprio container e a fila fica em erro de conexão. Para usar a fila de e-mails será preciso configurar o Redis explicitamente.
 
@@ -322,13 +347,15 @@ docker build -f .build/Dockerfile --target production -t tmdb-backend .
 | `npm run build`       | Compila o projeto                            |
 | `npm run lint`        | Roda o ESLint com `--fix`                    |
 | `npm run format`      | Formata o código com o Prettier              |
-| `npx prisma db seed`  | Executa o seed (`prisma/seeders/seed.ts`)    |
+| `npx prisma db seed`  | Aplica o catálogo de permissões              |
+| `npm run seed:admin`  | Cria o usuário admin, se não existir         |
 
 ## Estrutura do projeto
 
 ```
-.build/
-  Dockerfile           # imagem multi-stage (development / build / production)
+.adata/
+  Dockerfile           # imagem multi-stage (development / build / production), usada também pelo CI
+.gitlab-ci.yml         # pipeline de build, deploy e notificação
 
 docker-compose.yml           # base
 docker-compose.override.yml  # desenvolvimento (app + banco em container)
@@ -336,7 +363,9 @@ docker-compose.prod.yml      # produção (app + banco externo)
 
 prisma/
   migrations/          # histórico de migrações
-  seeders/seed.ts      # dados iniciais (usuário admin)
+  seeders/catalog.ts   # módulos, operações e perfil admin
+  seeders/seed.ts      # aplica o catálogo (roda no deploy)
+  seeders/create-admin.ts  # cria o usuário admin (manual)
   schema.prisma        # modelo de dados
 
 src/
@@ -496,7 +525,7 @@ users.profile_id → profiles → profile_operation → operations.identifier
 
 O login carrega essa cadeia e grava os identificadores no token. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
 
-Credenciais padrão após o seed: `admin` / `admin`, com as 13 operações liberadas.
+Credenciais padrão após `npm run seed:admin`: `admin` / `admin` (ou a senha de `SEED_ADMIN_PASSWORD`), com as 13 operações liberadas.
 
 ## Segurança
 
@@ -522,13 +551,18 @@ Para desabilitar o Swagger em produção, defina `SWAGGER_ENABLED="false"`.
 
 ## CI/CD
 
-O pipeline do GitLab (`.gitlab-ci.yml`) possui dois estágios:
+O pipeline do GitLab (`.gitlab-ci.yml`) roda nas branches `dev`, `test` e `prod`, em três estágios:
 
-- **test** — análise de código com SonarQube (apenas na branch `main`)
-- **deploy** — build da imagem e atualização do serviço, por ambiente:
+| Estágio | O que faz |
+| --- | --- |
+| `build` | Gera a imagem com `.adata/Dockerfile` e publica em `registry-sao.adata.com/<projeto>:<branch>` |
+| `deploy` | Via SSH, baixa a imagem e atualiza o serviço Docker Swarm do ambiente |
+| `notification` | Envia e-mail ao autor do push com o resultado do deploy |
 
-| Branch | Ambiente        |
-| ------ | --------------- |
-| `dev`  | Desenvolvimento |
-| `test` | Teste           |
-| `main` | Produção        |
+| Branch | Ambiente | Serviço |
+| ------ | -------- | ------- |
+| `dev`  | Desenvolvimento | `dev-tmdb_backend` |
+| `test` | Teste | `test-tmdb_backend` |
+| `prod` | Produção | `tmdb_backend` |
+
+Como o container aplica `prisma migrate deploy` e `prisma db seed` ao iniciar, toda migration e todo módulo novo do catálogo de permissões presentes na branch chegam ao banco do ambiente durante o deploy. O usuário admin não é criado pelo deploy — veja [Primeiro deploy em um ambiente novo](#primeiro-deploy-em-um-ambiente-novo).

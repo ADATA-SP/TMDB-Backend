@@ -10,7 +10,7 @@ import {
 } from './dto/list-profile.dto';
 import { PrismaService } from '../../../database/prisma.service';
 import { createPaginator } from 'prisma-pagination';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { UserPayloadProps } from '../../../common/types';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuditLogRepository } from '../audit/audit.repository';
