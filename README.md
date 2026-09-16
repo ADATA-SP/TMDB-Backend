@@ -185,8 +185,8 @@ O seed monta toda a cadeia de controle de acesso:
 
 | Registro | Conteúdo |
 | --- | --- |
-| `modules` | `users`, `machines` e `permissions` |
-| `operations` | 11 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
+| `modules` | `users`, `machines`, `notifications`, `change-log` e `permissions` |
+| `operations` | 13 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
 | `profiles` | Perfil `admin` (Administrador) |
 | `profile_operation` | Vincula **todas** as operações ao perfil `admin` |
 | `users` | Usuário `admin` / senha `admin`, associado ao perfil `admin` |
@@ -384,6 +384,35 @@ src/
 | `PATCH`| `/profiles/:id/change-status` | Ativa/inativa perfil            |
 | `DELETE`| `/profiles/:id`              | Remove perfil                   |
 
+### Permissões por perfil
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/modules` | Módulos ativos com as operações que cada um oferece |
+| `GET` | `/profile-operation` | Matriz atual: perfis ativos e suas operações |
+| `POST` | `/profile-operation` | Substitui as operações dos perfis informados |
+
+O `POST /profile-operation` recebe uma lista e **troca integralmente** as operações de cada perfil:
+
+```json
+[{ "identifier": "admin", "operations": ["show-users", "edit-users"] }]
+```
+
+Perfis não encontrados pelo `identifier` e operações inexistentes são ignorados, sem erro. Como as permissões viajam dentro do JWT, a alteração só vale para o usuário **após um novo login**.
+
+### Notificações e registro de alterações
+
+| Método | Rota | Descrição |
+| --- | --- | --- |
+| `GET` | `/notification-log` | Histórico de notificações (paginado) |
+| `GET` | `/notification-log/reports?type=pdf\|excel` | Exporta o histórico completo |
+| `GET` | `/change-log` | Trilha de auditoria das alterações (paginado) |
+| `GET` | `/change-log/reports?type=pdf\|excel` | Exporta a trilha completa |
+
+Ambas as listagens aceitam filtro por `description` e por período (`start` / `end`, no formato `YYYY-MM-DD` ou `YYYY-MM-DDTHH:mm`), e vêm ordenadas do mais recente para o mais antigo, já com o nome do usuário resolvido.
+
+Os registros são gravados pelos próprios módulos de negócio, através do `AuditLogRepository` e do `NotificationRepository` — por exemplo, cadastrar ou editar uma máquina gera uma linha em cada um.
+
 ### Máquinas
 
 | Método | Rota | Descrição |
@@ -467,7 +496,7 @@ users.profile_id → profiles → profile_operation → operations.identifier
 
 O login carrega essa cadeia e grava os identificadores no token. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
 
-Credenciais padrão após o seed: `admin` / `admin`, com as 11 operações liberadas.
+Credenciais padrão após o seed: `admin` / `admin`, com as 13 operações liberadas.
 
 ## Segurança
 

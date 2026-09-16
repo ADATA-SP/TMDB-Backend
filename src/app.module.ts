@@ -19,6 +19,10 @@ import { RoutineModule } from './modules/configuration/routines/routine.module';
 import { ActionModule } from './modules/configuration/actions/action.module';
 import { RoutineActionModule } from './modules/configuration/routine-action/routine-action.module';
 import { ReasonCodeModule } from './modules/configuration/reason-code/reason-code.module';
+import { AuditLogModule } from './modules/access-control/audit/audit.module';
+import { NotificationModule } from './modules/access-control/notification/notification.module';
+import { ModuleOperationModule } from './modules/access-control/module-operation/module-operation.module';
+import { ProfileOperationModule } from './modules/access-control/profile-operation/profile-operation.module';
 
 @Module({
 	imports: [
@@ -77,6 +81,10 @@ import { ReasonCodeModule } from './modules/configuration/reason-code/reason-cod
 		ActionModule,
 		RoutineActionModule,
 		ReasonCodeModule,
+		AuditLogModule,
+		NotificationModule,
+		ModuleOperationModule,
+		ProfileOperationModule,
 	],
 	controllers: [AppController],
 	providers: [
