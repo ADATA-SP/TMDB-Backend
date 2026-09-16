@@ -5,7 +5,7 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { CreateRoutineDto } from './dto/create-routine.dto';
 import { ListInputRoutineDto } from './dto/list-routine.dto';
 import { UpdateRoutineDto } from './dto/update-routine.dto';

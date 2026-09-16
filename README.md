@@ -272,13 +272,9 @@ docker compose down -v
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (`node dist/main`, sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
+Nessa combinação o `override` não é carregado, então **não há container de banco**: sobe apenas o `app`, no estágio `production` (sem bind mount e sem devDependencies), apontando para a `DATABASE_URL` externa do `.env`.
 
-As migrations não são aplicadas automaticamente aqui — rode-as de forma controlada no deploy:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app npx prisma migrate deploy
-```
+Ao iniciar, o container executa `npx prisma migrate deploy` antes de `node dist/main`, então as migrations pendentes são aplicadas automaticamente a cada deploy. Se a migration falhar, a aplicação não sobe.
 
 ### Testar
 
@@ -290,22 +286,22 @@ http://localhost:3001/swagger
 
 ### Estágios da imagem
 
-O `.build/Dockerfile` é multi-stage:
+O `.adata/Dockerfile` é multi-stage:
 
 | Estágio       | Uso                                                                 |
 | ------------- | ------------------------------------------------------------------- |
 | `deps`        | Instala as dependências (camada reaproveitada em cache)             |
 | `development` | Dependências completas + `npm run start:dev`                        |
 | `build`       | Gera o `dist` com `npm run build`                                   |
-| `production`  | Apenas dependências de produção + `dist` + `node dist/main`         |
+| `production`  | Dependências de produção + `dist`; aplica as migrations e sobe a app |
 
 Para gerar a imagem de produção manualmente:
 
 ```bash
-docker build -f .build/Dockerfile --target production -t tmdb-backend .
+docker build -f .adata/Dockerfile --target production -t tmdb-backend .
 ```
 
-> O pipeline do GitLab não usa este Dockerfile — ele constrói a imagem a partir do `Dockerfile.node22.18.pnpm.nest` do repositório `environment/cicd`. O `.build/Dockerfile` serve ao uso local e a builds manuais.
+> É este mesmo Dockerfile que o pipeline do GitLab usa para gerar a imagem publicada. O `ts-node` fica em `dependencies`, e não em `devDependencies`, o que permite executar `npx prisma db seed` dentro do container de produção — o seed não roda sozinho no deploy.
 
 > O `QueueMailModule` registra a fila do Bull sem um `BullModule.forRoot()`, então a conexão cai no padrão `localhost:6379`. Não há serviço de Redis no compose: dentro do container esse endereço aponta para o próprio container e a fila fica em erro de conexão. Para usar a fila de e-mails será preciso configurar o Redis explicitamente.
 
@@ -327,8 +323,9 @@ docker build -f .build/Dockerfile --target production -t tmdb-backend .
 ## Estrutura do projeto
 
 ```
-.build/
-  Dockerfile           # imagem multi-stage (development / build / production)
+.adata/
+  Dockerfile           # imagem multi-stage (development / build / production), usada também pelo CI
+.gitlab-ci.yml         # pipeline de build, deploy e notificação
 
 docker-compose.yml           # base
 docker-compose.override.yml  # desenvolvimento (app + banco em container)
@@ -522,13 +519,18 @@ Para desabilitar o Swagger em produção, defina `SWAGGER_ENABLED="false"`.
 
 ## CI/CD
 
-O pipeline do GitLab (`.gitlab-ci.yml`) possui dois estágios:
+O pipeline do GitLab (`.gitlab-ci.yml`) roda nas branches `dev`, `test` e `prod`, em três estágios:
 
-- **test** — análise de código com SonarQube (apenas na branch `main`)
-- **deploy** — build da imagem e atualização do serviço, por ambiente:
+| Estágio | O que faz |
+| --- | --- |
+| `build` | Gera a imagem com `.adata/Dockerfile` e publica em `registry-sao.adata.com/<projeto>:<branch>` |
+| `deploy` | Via SSH, baixa a imagem e atualiza o serviço Docker Swarm do ambiente |
+| `notification` | Envia e-mail ao autor do push com o resultado do deploy |
 
-| Branch | Ambiente        |
-| ------ | --------------- |
-| `dev`  | Desenvolvimento |
-| `test` | Teste           |
-| `main` | Produção        |
+| Branch | Ambiente | Serviço |
+| ------ | -------- | ------- |
+| `dev`  | Desenvolvimento | `dev-tmdb_backend` |
+| `test` | Teste | `test-tmdb_backend` |
+| `prod` | Produção | `tmdb_backend` |
+
+Como o container aplica `prisma migrate deploy` ao iniciar, toda migration presente na branch é executada no banco do ambiente durante o deploy.

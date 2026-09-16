@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma as PrismaType } from '.prisma/client';
+import { Prisma as PrismaType } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { RmsSystemService } from '../rms-system/rms-system.service';
 import { RmsReasonCode, RmsRoutine } from '../rms-system/types/rms.type';
