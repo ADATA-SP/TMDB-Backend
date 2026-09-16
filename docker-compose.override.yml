@@ -2,7 +2,7 @@ services:
     app:
         environment:
             DATABASE_URL: 'sqlserver://db:1433;database=${MSSQL_DB};user=sa;password=${MSSQL_SA_PASSWORD};encrypt=true;trustServerCertificate=true'
-        command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run start:dev"
+        command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run seed:admin && npm run start:dev"
         volumes:
             - .:/app
             - /app/node_modules
