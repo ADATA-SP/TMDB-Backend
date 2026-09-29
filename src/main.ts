@@ -67,9 +67,8 @@ async function bootstrap() {
 		)
 		.addTag(
 			'Authentication',
-			'Emissão de tokens e consulta do usuário autenticado.',
+			'Login via SSO do Portal ADATA e consulta do usuário autenticado.',
 		)
-		.addTag('Users', 'Cadastro de usuários e integração com o LDAP.')
 		.addTag('Profiles', 'Cadastro dos perfis de acesso.')
 		.addTag('Modules', 'Módulos do sistema e as operações que oferecem.')
 		.addTag(

@@ -1,6 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import {
+	ApiBadGatewayResponse,
 	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiForbiddenResponse,
@@ -11,7 +12,7 @@ import {
 	ApiTooManyRequestsResponse,
 	ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { SignInDto } from './dto/signin.dto';
+import { SsoSignInDto } from './dto/sso-sign-in.dto';
 import { AuthToken, GetCurrentUser, Public } from '../common/decorators';
 import { UserPayloadProps } from '../common/types';
 import { Throttle } from '@nestjs/throttler';
@@ -24,13 +25,13 @@ export class AuthenticationController {
 		private readonly authenticationService: AuthenticationService,
 	) {}
 
-	@Post('sign-in')
+	@Post('sso')
 	@Public()
-	@Throttle({ short: { ttl: 60000, limit: 5 } })
+	@Throttle({ short: { ttl: 60000, limit: 20 } })
 	@ApiOperation({
-		summary: 'Autentica o usuário e emite os tokens de acesso',
+		summary: 'Autentica o usuário a partir do SSO do Portal ADATA',
 		description:
-			'Valida as credenciais informadas e retorna os dados do usuário acompanhados do token de acesso e do token de renovação. A senha é verificada no LDAP quando connect_ldap for true, ou na base local quando false. Rota pública, limitada a 5 tentativas por minuto.',
+			'Recebe o código de uso único entregue pelo Portal à bridge do front, troca-o no Portal pelos dados do usuário e emite os tokens do TMDB. O usuário é criado ou atualizado a cada acesso, e o perfil vem do primeiro alias enviado pelo Portal que corresponda a um perfil ativo do TMDB. Rota pública, limitada a 20 tentativas por minuto.',
 	})
 	@ApiOkResponse({
 		description:
@@ -38,14 +39,14 @@ export class AuthenticationController {
 		schema: {
 			example: {
 				id: 1,
-				name: 'Administrador',
-				username: 'admin',
-				email: 'admin@email.com',
+				name: 'SP Engineer',
+				username: null,
+				email: 'sp.engineer@adata.com',
 				status: 1,
 				path_image: null,
-				created_at: '2026-07-28T16:30:00.000Z',
-				updated_at: '2026-07-28T16:30:00.000Z',
-				ldap_crendential: 0,
+				created_at: '2026-09-29T12:00:00.000Z',
+				updated_at: '2026-09-29T12:00:00.000Z',
+				portal_user_id: '1001',
 				profile_id: 1,
 				profile_description: 'Administrador',
 				token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
@@ -54,42 +55,44 @@ export class AuthenticationController {
 		},
 	})
 	@ApiBadRequestResponse({
-		description:
-			'Credenciais inválidas ou usuário sem senha cadastrada na base local.',
+		description: 'Corpo da requisição inválido.',
 		schema: {
 			example: {
-				message: 'Credenciais inválidas!',
+				message: 'Campo sso_code não pode estar vazio',
 			},
 		},
 	})
 	@ApiUnauthorizedResponse({
-		description: 'Falha na validação das credenciais junto ao LDAP.',
+		description:
+			'Código SSO inválido, expirado, já utilizado, emitido para outro sistema ou com state/client_nonce divergentes.',
 		schema: {
 			example: {
-				statusCode: 401,
-				message: 'Credenciais inválidas por favor verifique',
-				error: 'Unauthorized',
+				message:
+					'Não foi possível validar o acesso pelo Portal ADATA. Abra o TMDB novamente pelo Portal.',
 			},
 		},
 	})
 	@ApiForbiddenResponse({
-		description: 'Usuário desativado no TMDB.',
+		description:
+			'Nenhum dos perfis enviados pelo Portal corresponde a um perfil ativo do TMDB.',
 		schema: {
 			example: {
-				message: 'Usuário desativado no TMDB',
+				message:
+					'Seu perfil no Portal ADATA não dá acesso ao TMDB. Entre em contato com o administrador.',
 			},
 		},
 	})
-	@ApiNotFoundResponse({
-		description: 'Usuário não cadastrado no TMDB.',
+	@ApiBadGatewayResponse({
+		description: 'O Portal ADATA não respondeu ou retornou erro interno.',
 		schema: {
 			example: {
-				message: 'Usuário  não encontrado no TMDB!',
+				message:
+					'O Portal ADATA está indisponível no momento. Tente novamente em instantes.',
 			},
 		},
 	})
 	@ApiTooManyRequestsResponse({
-		description: 'Limite de 5 tentativas por minuto excedido.',
+		description: 'Limite de 20 tentativas por minuto excedido.',
 		schema: {
 			example: {
 				statusCode: 429,
@@ -97,8 +100,8 @@ export class AuthenticationController {
 			},
 		},
 	})
-	signIn(@Body() signDto: SignInDto) {
-		return this.authenticationService.signIn(signDto);
+	ssoSignIn(@Body() ssoSignInDto: SsoSignInDto) {
+		return this.authenticationService.ssoSignIn(ssoSignInDto);
 	}
 
 	@Post('whoami')
@@ -112,22 +115,19 @@ export class AuthenticationController {
 		schema: {
 			example: {
 				id: 1,
-				name: 'Administrador',
-				username: 'admin',
-				email: 'admin@email.com',
+				name: 'SP Engineer',
+				username: null,
+				email: 'sp.engineer@adata.com',
 				status: 1,
 				path_image: null,
-				created_at: '2026-07-28T16:30:00.000Z',
-				updated_at: '2026-07-28T16:30:00.000Z',
-				ldap_crendential: 0,
+				created_at: '2026-09-29T12:00:00.000Z',
+				updated_at: '2026-09-29T12:00:00.000Z',
+				portal_user_id: '1001',
 				profile_id: 1,
 				profile_description: 'Administrador',
 				operations: [
-					'create-users',
-					'edit-users',
-					'show-users',
-					'notify-users',
-					'delete-users',
+					'show-machines',
+					'edit-machines',
 					'edit-permissions',
 					'show-permissions',
 				],
