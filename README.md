@@ -1,6 +1,6 @@
 # TMDB — Backend
 
-API REST em NestJS para o TMDB, com autenticação via LDAP + JWT, persistência em SQL Server através do Prisma e documentação automática em Swagger.
+API REST em NestJS para o TMDB, com autenticação via SSO do Portal ADATA + JWT, persistência em SQL Server através do Prisma e documentação automática em Swagger.
 
 ## Stack
 
@@ -9,7 +9,7 @@ API REST em NestJS para o TMDB, com autenticação via LDAP + JWT, persistência
 | Framework       | NestJS 10                         |
 | ORM             | Prisma 6.10 (adapter MSSQL)       |
 | Banco           | SQL Server                        |
-| Autenticação    | LDAP (`ldapts`) + JWT (Passport)  |
+| Autenticação    | SSO do Portal ADATA + JWT (Passport) |
 | Documentação    | Swagger (`@nestjs/swagger`)       |
 | Filas           | Bull (envio de e-mails)           |
 | E-mail          | Nodemailer + Handlebars           |
@@ -76,7 +76,6 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 | `APP_ENV`     | `local`                 |
 | `APP_PORT`    | `3001`                  |
 | `APP_VERSION` | `TMDB Backend v1.0.0`   |
-| `SEED_ADMIN_PASSWORD` | Senha do admin criado por `npm run seed:admin` (padrão: `admin`) |
 
 #### CORS
 
@@ -107,15 +106,16 @@ A `DATABASE_URL` do ambiente de desenvolvimento **não é escrita à mão**: o `
 | `JWT_RT_SECRET`  | `rt-secret` |
 | `JWT_RT_EXPIRES` | `7d`        |
 
-#### LDAP
+#### SSO do Portal ADATA
 
-| Variável         | Exemplo                        |
-| ---------------- | ------------------------------ |
-| `LDAP_SERVER`    | `ldap://SERVIDOR:389`          |
-| `LDAP_BASE`      | `DC=exemplo,DC=org,DC=br`      |
-| `LDAP_USER`      | usuário de bind                |
-| `LDAP_PASSWORD`  | senha de bind                  |
-| `LDAP_ATTRIBUTE` | `sAMAccountName`               |
+Obrigatórias: o SSO é a única forma de login (ver [Login via SSO do Portal ADATA](#login-via-sso-do-portal-adata)).
+
+| Variável              | Exemplo (sandbox local)    | Descrição |
+| --------------------- | -------------------------- | --------- |
+| `SSO_PORTAL_API_URL`  | `http://localhost:3010`    | URL base da API do Portal, sem `/api` |
+| `SSO_API_KEY`         | `sandbox-api-key`          | Chave enviada no header `x-api-key` da troca do código |
+| `SSO_SYSTEM_ID`       | `1`                        | Id do TMDB no cadastro de sistemas do Portal |
+| `SSO_FRONTEND_ORIGIN` | `http://localhost:3000`    | Origem pública do front, idêntica ao `sso_origin` cadastrado no Portal (sem barra final) |
 
 #### E-mail (Nodemailer)
 
@@ -178,19 +178,16 @@ npx prisma migrate dev
 
 ### 5. Popular os dados iniciais (seed)
 
-Os dados iniciais são divididos em duas partes:
-
 ```bash
 npx prisma db seed        # catálogo de permissões
-npm run seed:admin        # usuário admin
 ```
 
 **Catálogo de permissões** ([seed.ts](prisma/seeders/seed.ts), com a lógica em [catalog.ts](prisma/seeders/catalog.ts)) — roda automaticamente a cada deploy:
 
 | Registro | Conteúdo |
 | --- | --- |
-| `modules` | `users`, `machines`, `notifications`, `change-log` e `permissions` |
-| `operations` | 13 operações, no formato `<ação>-<módulo>` (ex.: `show-users`, `sync-machines`) |
+| `modules` | `machines`, `notifications`, `change-log` e `permissions` |
+| `operations` | 8 operações, no formato `<ação>-<módulo>` (ex.: `show-machines`, `sync-machines`) |
 | `profiles` | Perfil `admin` (Administrador) |
 | `profile_operation` | Operações liberadas para o perfil `admin` |
 
@@ -201,14 +198,7 @@ Ele só **acrescenta**; nunca remove nem altera registros existentes. As operaç
 
 Uma operação retirada do `admin` pela tela continua retirada nos deploys seguintes.
 
-**Usuário admin** ([create-admin.ts](prisma/seeders/create-admin.ts)) — **manual**, uma vez por ambiente:
-
-| Situação | Resultado |
-| --- | --- |
-| `admin` não existe | Cria com a senha de `SEED_ADMIN_PASSWORD`, ou `admin` se a variável não estiver definida |
-| `admin` já existe | Não altera a senha; apenas garante o vínculo com o perfil `admin` |
-
-O script também executa o catálogo antes, então funciona mesmo num banco recém-migrado.
+Nenhum usuário é criado pelo seed: os usuários nascem no primeiro acesso via Portal (ver [Login via SSO do Portal ADATA](#login-via-sso-do-portal-adata)). Para ter um administrador, cadastre no Portal um perfil com alias `admin` para o sistema TMDB.
 
 > Ao implementar novos módulos, acrescente o módulo e suas operações em `modulesDataQuery` no [catalog.ts](prisma/seeders/catalog.ts). No próximo deploy, as operações novas são criadas e liberadas para o perfil `admin`.
 
@@ -263,10 +253,10 @@ Como o Compose carrega o `docker-compose.override.yml` sozinho, esse comando já
 O `app` só inicia depois que o `db` fica **healthy** (`depends_on` com `condition: service_healthy`), e o comando do container é:
 
 ```
-npx prisma migrate deploy && npx prisma db seed && npm run seed:admin && npm run start:dev
+npx prisma migrate deploy && npx prisma db seed && npm run start:dev
 ```
 
-Ou seja: no ambiente de desenvolvimento as migrations, o catálogo de permissões e o usuário admin **são aplicados automaticamente** a cada subida. O banco é criado pelo próprio `migrate deploy`, e os dois seeds podem rodar repetidas vezes sem efeito colateral. Na primeira subida a aplicação já nasce com o admin (`admin` / `admin`) e todas as permissões.
+Ou seja: no ambiente de desenvolvimento as migrations e o catálogo de permissões **são aplicados automaticamente** a cada subida. O banco é criado pelo próprio `migrate deploy`, e o seed pode rodar repetidas vezes sem efeito colateral.
 
 Para acessar o banco do container direto:
 
@@ -324,13 +314,7 @@ docker build -f .adata/Dockerfile --target production -t tmdb-backend .
 
 #### Primeiro deploy em um ambiente novo
 
-O deploy cria as tabelas e as permissões, mas **não cria nenhum usuário**. Depois do primeiro deploy, crie o admin uma única vez:
-
-```bash
-docker exec -e SEED_ADMIN_PASSWORD='<senha-forte>' <container_do_tmdb_backend> npm run seed:admin
-```
-
-Sem a `SEED_ADMIN_PASSWORD`, a senha fica `admin` — nesse caso, troque-a antes de liberar o ambiente.
+O deploy cria as tabelas e as permissões, mas **não cria nenhum usuário**. Antes de liberar o ambiente, cadastre o TMDB no Portal ADATA (ver [Login via SSO do Portal ADATA](#login-via-sso-do-portal-adata)) e preencha as variáveis `SSO_*` com os dados fornecidos pelo Portal.
 
 > O `QueueMailModule` registra a fila do Bull sem um `BullModule.forRoot()`, então a conexão cai no padrão `localhost:6379`. Não há serviço de Redis no compose: dentro do container esse endereço aponta para o próprio container e a fila fica em erro de conexão. Para usar a fila de e-mails será preciso configurar o Redis explicitamente.
 
@@ -348,7 +332,6 @@ Sem a `SEED_ADMIN_PASSWORD`, a senha fica `admin` — nesse caso, troque-a antes
 | `npm run lint`        | Roda o ESLint com `--fix`                    |
 | `npm run format`      | Formata o código com o Prettier              |
 | `npx prisma db seed`  | Aplica o catálogo de permissões              |
-| `npm run seed:admin`  | Cria o usuário admin, se não existir         |
 
 ## Estrutura do projeto
 
@@ -365,30 +348,26 @@ prisma/
   migrations/          # histórico de migrações
   seeders/catalog.ts   # módulos, operações e perfil admin
   seeders/seed.ts      # aplica o catálogo (roda no deploy)
-  seeders/create-admin.ts  # cria o usuário admin (manual)
   schema.prisma        # modelo de dados
 
 src/
-  authentication/      # sign-in, whoami, estratégia JWT
+  authentication/      # login via SSO do Portal, whoami, estratégia JWT
   common/
     decorators/        # @Public, @CurrentUser, @AuthToken, ...
     dto/               # DTOs compartilhados (paginação, arquivos)
     enums/             # enums de domínio
-    functions/         # helpers (datas, hash, parsers, tokens)
+    functions/         # helpers (datas, parsers, tokens)
     guards/            # AtGuard (global) e PermissionGuard
     minio/             # integração com MinIO
     queue/mail/        # fila Bull de envio de e-mails
     services/          # integrações e serviços (excel, pdf, mail, APIs)
     templates/         # templates Handlebars de e-mail
-    validators/        # validadores de senha
   database/            # PrismaModule / PrismaService
-  ldap/                # integração com o servidor LDAP
   modules/
     access-control/
       profiles/        # CRUD de perfis de acesso
       audit/           # repositório de audit_log
       notification/    # repositório de notification_log
-    users/             # CRUD de usuários
   main.ts              # bootstrap, CORS, validação global e Swagger
 ```
 
@@ -396,16 +375,8 @@ src/
 
 | Método | Rota                          | Descrição                       |
 | ------ | ----------------------------- | ------------------------------- |
-| `POST` | `/authentication/sign-in`     | Autenticação e emissão do token |
+| `POST` | `/authentication/sso`         | Troca o código SSO do Portal e emite o token |
 | `POST` | `/authentication/whoami`      | Dados do usuário autenticado    |
-| `POST` | `/users`                      | Cria usuário                    |
-| `GET`  | `/users`                      | Lista usuários (paginado)       |
-| `GET`  | `/users/search-account-name`  | Busca conta no LDAP             |
-| `GET`  | `/users/:id`                  | Detalha usuário                 |
-| `PATCH`| `/users/:id`                  | Atualiza usuário                |
-| `PATCH`| `/users/:id/change-status`    | Ativa/inativa usuário           |
-| `PUT`  | `/users/change-password`      | Altera a senha                  |
-| `DELETE`| `/users/:id`                 | Remove usuário                  |
 | `POST` | `/profiles`                   | Cria perfil                     |
 | `GET`  | `/profiles`                   | Lista perfis (paginado)         |
 | `GET`  | `/profiles/:id`               | Detalha perfil                  |
@@ -424,7 +395,7 @@ src/
 O `POST /profile-operation` recebe uma lista e **troca integralmente** as operações de cada perfil:
 
 ```json
-[{ "identifier": "admin", "operations": ["show-users", "edit-users"] }]
+[{ "identifier": "admin", "operations": ["show-machines", "edit-machines"] }]
 ```
 
 Perfis não encontrados pelo `identifier` e operações inexistentes são ignorados, sem erro. Como as permissões viajam dentro do JWT, a alteração só vale para o usuário **após um novo login**.
@@ -513,7 +484,32 @@ A lista completa e atualizada fica disponível no Swagger.
 
 O `AtGuard` é registrado como guard global (`APP_GUARD`), então **todas as rotas exigem um Bearer token JWT por padrão**. Para expor uma rota publicamente, use o decorator `@Public()`.
 
-No Swagger, use o botão **Authorize** (esquema `JWT-auth`) e informe o token retornado pelo `/authentication/sign-in`. O token fica persistido entre recarregamentos da página.
+No Swagger, use o botão **Authorize** (esquema `JWT-auth`) e informe um token emitido pelo `/authentication/sso` — o mais simples é entrar no front pelo Portal e copiar o `access_token` do `localStorage`. O token fica persistido entre recarregamentos da página.
+
+### Login via SSO do Portal ADATA
+
+O TMDB não tem login próprio nem cadastro de usuários: o acesso é concedido pelo Portal ADATA. O fluxo é:
+
+1. No Portal, o usuário clica no card do TMDB e o Portal abre `<SSO_FRONTEND_ORIGIN>/sso/bridge?state=...&returnTo=...`.
+2. A bridge do front e o Portal trocam `portal:sso:ready` / `portal:sso:init` via `postMessage`; o front recebe um `sso_code` de uso único (TTL curto).
+3. O front envia `sso_code`, `system_id`, `state` e `client_nonce` para `POST /authentication/sso`.
+4. O backend troca o código em `POST <SSO_PORTAL_API_URL>/api/systems/sso/exchange` (header `x-api-key`) e recebe o usuário com seus `profiles` (aliases).
+5. O perfil do TMDB é o **primeiro alias**, na ordem enviada pelo Portal, que corresponda ao `identifier` de um perfil ativo. Sem correspondência, a resposta é **403**.
+6. O usuário é criado no primeiro acesso ou atualizado nos seguintes (nome, e-mail e perfil), sempre a partir do Portal. O vínculo é feito por `portal_user_id`; usuários anteriores ao SSO são vinculados pelo e-mail.
+
+O código é consumido pelo Portal na primeira tentativa, válida ou não — um erro exige abrir o TMDB novamente pelo Portal.
+
+**Cadastro do TMDB no Portal:**
+
+| Campo | Valor |
+| --- | --- |
+| Modo | `sso` |
+| `sso_origin` | Mesmo valor de `SSO_FRONTEND_ORIGIN` |
+| `sso_path` | `/sso/bridge` |
+| `sso_return_to` | `/` |
+| Perfis | Aliases iguais aos `identifier` dos perfis do TMDB (ex.: `admin`) |
+
+**Testando com o sandbox** (`sandbox_adata`): use `SSO_PORTAL_API_URL=http://localhost:3010`, `SSO_API_KEY=sandbox-api-key` e `SSO_SYSTEM_ID=1`, e no `.env` do sandbox aponte `SSO_SYSTEM_ORIGIN` para o front do TMDB. Os perfis seed do sandbox usam os aliases `administrator` e `supplier-user` — crie perfis com esses `identifier` no TMDB ou cadastre um sistema com aliases do TMDB pela tela *Sandbox Controls*.
 
 ### Permissões
 
@@ -523,9 +519,8 @@ Além do `AtGuard`, a maioria das rotas usa o `PermissionGuard`, que compara a o
 users.profile_id → profiles → profile_operation → operations.identifier
 ```
 
-O login carrega essa cadeia e grava os identificadores no token. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
+O login via SSO carrega essa cadeia e grava os identificadores no token; uma mudança de perfil no Portal só vale após um novo acesso pelo Portal. Um usuário **sem `profile_id`**, ou cujo perfil não tenha operações vinculadas, autentica normalmente mas recebe **403 em toda rota protegida** — só `/authentication/whoami` e as rotas públicas respondem.
 
-Credenciais padrão após `npm run seed:admin`: `admin` / `admin` (ou a senha de `SEED_ADMIN_PASSWORD`), com as 13 operações liberadas.
 
 ## Segurança
 
@@ -533,16 +528,17 @@ Credenciais padrão após `npm run seed:admin`: `admin` / `admin` (ou a senha de
 | --- | --- |
 | Cabeçalhos de segurança | `helmet` aplicado globalmente; `X-Powered-By` desabilitado |
 | Rate limiting | `ThrottlerGuard` global: 20 req/s e 300 req/min por IP |
-| Proteção de força bruta | `/authentication/sign-in` limitado a 5 tentativas por minuto |
+| Login | Somente via SSO do Portal; `/authentication/sso` limitado a 20 tentativas por minuto |
 | Mass assignment | `ValidationPipe` com `whitelist: true` — propriedades não declaradas nos DTOs são descartadas |
 | Validação de ambiente | `validateEnv()` interrompe o boot se faltar variável obrigatória |
-| Senhas | Armazenadas com hash `bcrypt` |
+| Senhas | O TMDB não armazena senhas |
 
 ### Regras adicionais em produção
 
 Quando `NODE_ENV=production`, o boot é interrompido se:
 
 - `JWT_AT_SECRET` ou `JWT_RT_SECRET` estiverem com valores de exemplo (`at-secret`, `rt-secret`)
+- `SSO_API_KEY` estiver com a chave do sandbox (`sandbox-api-key`)
 - `CORS_ORIGIN` estiver como `*`
 
 O `CORS_ORIGIN` aceita múltiplas origens separadas por vírgula, por exemplo `https://app.exemplo.com,https://admin.exemplo.com`.
@@ -565,4 +561,4 @@ O pipeline do GitLab (`.gitlab-ci.yml`) roda nas branches `dev`, `test` e `prod`
 | `test` | Teste | `test-tmdb_backend` |
 | `prod` | Produção | `tmdb_backend` |
 
-Como o container aplica `prisma migrate deploy` e `prisma db seed` ao iniciar, toda migration e todo módulo novo do catálogo de permissões presentes na branch chegam ao banco do ambiente durante o deploy. O usuário admin não é criado pelo deploy — veja [Primeiro deploy em um ambiente novo](#primeiro-deploy-em-um-ambiente-novo).
+Como o container aplica `prisma migrate deploy` e `prisma db seed` ao iniciar, toda migration e todo módulo novo do catálogo de permissões presentes na branch chegam ao banco do ambiente durante o deploy. Nenhum usuário é criado pelo deploy — veja [Primeiro deploy em um ambiente novo](#primeiro-deploy-em-um-ambiente-novo).
