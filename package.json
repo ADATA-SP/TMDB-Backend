@@ -12,8 +12,7 @@
 		"start:dev": "nest start --watch",
 		"start:debug": "nest start --debug --watch",
 		"start:prod": "node dist/main",
-		"lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-		"seed:admin": "ts-node prisma/seeders/create-admin.ts"
+		"lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
 	},
 	"prisma": {
 		"seed": "ts-node prisma/seeders/seed.ts"
@@ -35,7 +34,6 @@
 		"@prisma/client": "6.10.1",
 		"@types/pdfkit": "^0.17.2",
 		"axios": "^1.11.0",
-		"bcryptjs": "^3.0.2",
 		"bull": "^4.16.5",
 		"class-transformer": "^0.5.1",
 		"class-validator": "^0.14.1",
@@ -47,7 +45,6 @@
 		"dotenv": "^16.4.5",
 		"exceljs": "^4.4.0",
 		"helmet": "^8.3.0",
-		"ldapts": "8.0.1",
 		"minio": "8.0.5",
 		"nodemailer": "6.9.13",
 		"p-limit": "^7.2.0",
@@ -58,15 +55,14 @@
 		"prisma-pagination": "0.2.3",
 		"reflect-metadata": "^0.2.0",
 		"rxjs": "^7.8.1",
+		"ts-node": "^10.9.1",
 		"uuid": "^11.1.0",
-		"xlsx": "^0.18.5",
-		"ts-node": "^10.9.1"
+		"xlsx": "^0.18.5"
 	},
 	"devDependencies": {
 		"@nestjs/cli": "^10.0.0",
 		"@nestjs/schematics": "^10.0.0",
 		"@nestjs/testing": "^10.0.0",
-		"@types/bcrypt": "^5.0.2",
 		"@types/dotenv": "^8.2.3",
 		"@types/express": "^5.0.0",
 		"@types/jest": "^29.5.2",
