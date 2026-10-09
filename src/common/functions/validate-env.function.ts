@@ -7,7 +7,6 @@ const REQUIRED_ENV_VARS = [
 	'JWT_RT_EXPIRES',
 	'SSO_PORTAL_API_URL',
 	'SSO_API_KEY',
-	'SSO_FRONTEND_ORIGIN',
 ];
 
 const INSECURE_DEFAULTS = ['at-secret', 'rt-secret', 'secret', 'changeme'];
@@ -18,14 +17,6 @@ export const validateEnv = () => {
 	if (missing.length)
 		throw new Error(
 			`Variáveis de ambiente obrigatórias não definidas: ${missing.join(', ')}`,
-		);
-
-	if (
-		new URL(process.env.SSO_FRONTEND_ORIGIN).origin !==
-		process.env.SSO_FRONTEND_ORIGIN
-	)
-		throw new Error(
-			'SSO_FRONTEND_ORIGIN deve conter apenas protocolo, host e porta do front, sem barra final. Ex.: http://localhost:3000',
 		);
 
 	if (process.env.NODE_ENV !== 'production') return;
