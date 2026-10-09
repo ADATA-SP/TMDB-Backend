@@ -16,7 +16,7 @@ export class PortalSsoService {
 	private readonly logger = new Logger(PortalSsoService.name);
 
 	async exchangeCode(ssoSignInDto: SsoSignInDto): Promise<PortalUser> {
-		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/api/systems/sso/exchange`;
+		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/systems/sso/exchange`;
 
 		try {
 			const response = await axios.post(
