@@ -71,19 +71,18 @@ export class PortalSsoService {
 	}
 
 	private parsePortalUser(user: unknown): PortalUser {
-		const data = (user ?? {}) as Record<string, unknown>;
-		const id =
-			typeof data.id === 'number' ? String(data.id) : this.text(data.id);
+		const data = (user ?? {}) as Record<string, any>;
+		const id = typeof data.id === 'number' ? String(data.id) : this.text(data.id);
 		const email = this.text(data.email);
-		const firstName = this.text(data.first_name);
-		const lastName =
-			typeof data.last_name === 'string' ? data.last_name : '';
+		const name = typeof data.last_name == "string" ? data.last_name.replaceAll("_", "").trim() : "";
+		const username = data.last_name;
 		const profiles = data.profiles;
 
 		if (
 			!id ||
 			!email ||
-			!firstName ||
+			!name ||
+			!username ||
 			!Array.isArray(profiles) ||
 			profiles.some((profile) => typeof profile !== 'string')
 		) {
@@ -98,7 +97,8 @@ export class PortalSsoService {
 		return {
 			id,
 			email: email.toLowerCase(),
-			name: `${firstName} ${lastName.trim()}`.trim(),
+			name,
+			username, 
 			profiles: profiles as string[],
 		};
 	}

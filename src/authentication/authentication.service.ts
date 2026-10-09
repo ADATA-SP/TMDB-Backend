@@ -134,6 +134,7 @@ export class AuthenticationService {
 	private async syncPortalUser(portalUser: PortalUser, profileId: number) {
 		const data = {
 			name: portalUser.name,
+			username: portalUser.username,
 			email: portalUser.email,
 			portal_user_id: portalUser.id,
 			profile_id: profileId,
