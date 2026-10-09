@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import {
 	BadGatewayException,
 	Injectable,
@@ -15,7 +16,20 @@ const INVALID_ACCESS_MESSAGE =
 export class PortalSsoService {
 	private readonly logger = new Logger(PortalSsoService.name);
 
-	async exchangeCode(ssoSignInDto: SsoSignInDto): Promise<PortalUser> {
+	private getPublicOrigin(request: Request): string {
+		const protocol =
+			request.get('x-forwarded-proto')?.split(',')[0].trim() ??
+			request.protocol;
+
+		const host =
+			request.get('x-forwarded-host')?.split(',')[0].trim() ??
+			request.get('host');
+
+		return `${protocol}://${host}`;
+	}
+
+	async exchangeCode(ssoSignInDto: SsoSignInDto, request: Request): Promise<PortalUser> {
+		const origin = this.getPublicOrigin(request);
 		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/systems/sso/exchange`;
 
 		try {
@@ -24,7 +38,7 @@ export class PortalSsoService {
 				{
 					code: ssoSignInDto.sso_code,
 					system_id: ssoSignInDto.system_id,
-					origin: process.env.SSO_FRONTEND_ORIGIN,
+					origin,
 					state: ssoSignInDto.state,
 					client_nonce: ssoSignInDto.client_nonce,
 				},
