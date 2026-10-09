@@ -1,20 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { AuthenticationController } from './authentication.controller';
-import { LdapModule } from '../ldap/ldap.module';
-import { LdapService } from '../ldap/ldap.service';
 import { JwtModule } from '@nestjs/jwt';
 import { AtStrategy } from '../common/strategies';
-import { UsersRepository } from '../modules/users/users.repository';
+import { PortalSsoService } from './portal-sso.service';
 
 @Module({
-	imports: [LdapModule, JwtModule.register({})],
+	imports: [JwtModule.register({})],
 	controllers: [AuthenticationController],
-	providers: [
-		AuthenticationService,
-		LdapService,
-		AtStrategy,
-		UsersRepository,
-	],
+	providers: [AuthenticationService, PortalSsoService, AtStrategy],
 })
 export class AuthenticationModule {}

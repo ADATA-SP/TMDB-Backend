@@ -4,21 +4,6 @@ export const ADMIN_PROFILE_IDENTIFIER = 'admin';
 
 const modulesDataQuery = [
 	{
-		description: 'Usuários',
-		slug: 'users',
-		status: 1,
-		operations: [
-			{ description: 'Criar Usuários', identifier: 'create' },
-			{ description: 'Editar Usuários', identifier: 'edit' },
-			{ description: 'Visualizar Usuários', identifier: 'show' },
-			{
-				description: 'Alerta de alteração de Usuários',
-				identifier: 'notify',
-			},
-			{ description: 'Excluir Usuários', identifier: 'delete' },
-		],
-	},
-	{
 		description: 'Máquinas',
 		slug: 'machines',
 		status: 1,
@@ -63,7 +48,6 @@ export type CatalogSummary = {
 	createdOperations: number;
 	createdProfile: boolean;
 	linkedOperations: number;
-	adminProfileId: number;
 };
 
 export async function seedCatalog(
@@ -147,7 +131,6 @@ export async function seedCatalog(
 			createdOperations: createdOperationIds.length,
 			createdProfile,
 			linkedOperations: operationsToLink.length,
-			adminProfileId: adminProfile.id,
 		};
 	});
 }

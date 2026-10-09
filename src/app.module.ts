@@ -11,7 +11,6 @@ import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { QueueMailModule } from './common/queue/mail/queue-mail.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { UsersModule } from './modules/users/users.module';
 import { ProfilesModule } from './modules/access-control/profiles/profiles.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { MachinesModule } from './modules/process/machines/machines.module';
@@ -74,7 +73,6 @@ import { ProfileOperationModule } from './modules/access-control/profile-operati
 
 		PrismaModule,
 		AuthenticationModule,
-		UsersModule,
 		ProfilesModule,
 		MachinesModule,
 		RoutineModule,
