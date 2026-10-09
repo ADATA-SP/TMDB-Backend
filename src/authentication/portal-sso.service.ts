@@ -16,11 +16,6 @@ export class PortalSsoService {
 	private readonly logger = new Logger(PortalSsoService.name);
 
 	async exchangeCode(ssoSignInDto: SsoSignInDto): Promise<PortalUser> {
-		if (ssoSignInDto.system_id !== Number(process.env.SSO_SYSTEM_ID))
-			throw new UnauthorizedException({
-				message: INVALID_ACCESS_MESSAGE,
-			});
-
 		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/api/systems/sso/exchange`;
 
 		try {
