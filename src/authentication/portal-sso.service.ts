@@ -74,8 +74,8 @@ export class PortalSsoService {
 		const data = (user ?? {}) as Record<string, any>;
 		const id = typeof data.id === 'number' ? String(data.id) : this.text(data.id);
 		const email = this.text(data.email);
-		const name = typeof data.last_name == "string" ? data.last_name.replaceAll("_", "").trim() : "";
-		const username = data.last_name;
+		const name = data.last_name;
+		const username = data.login;
 		const profiles = data.profiles;
 
 		if (
