@@ -16,7 +16,7 @@ variables:
   tags:
     - saopaulo
   script:
-    - docker build -t $IMAGE_URL:$CI_COMMIT_BRANCH -f .adata/Dockerfile .
+    - docker build -t $IMAGE_URL:$CI_COMMIT_BRANCH -f .adata/docker/Dockerfile .
     - docker push $IMAGE_URL:$CI_COMMIT_BRANCH
   allow_failure: false
 
