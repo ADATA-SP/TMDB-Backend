@@ -1,3 +1,6 @@
+include:
+  - local: '.adata/ci/pipeline.yml'
+
 stages:
   - build
   - deploy
