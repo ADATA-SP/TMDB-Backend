@@ -15,7 +15,7 @@ build:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$HARBOR_REGISTRY\":{\"auth\":\"$HARBOR_AUTH_B64\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor
-      --dockerfile .adata/Dockerfile
+      --dockerfile .adata/docker/Dockerfile
       --context .
       --destination $IMAGE
       --skip-tls-verify
