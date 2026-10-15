@@ -1,3 +1,8 @@
+stages:
+  - build
+  - deploy
+  - notification
+
 variables:
   HARBOR_REGISTRY: "harbor.adata.com"
   GITOPS_REPO_HOST: "gitlab.adata.com"
