@@ -14,6 +14,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ProfilesModule } from './modules/access-control/profiles/profiles.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { MachinesModule } from './modules/process/machines/machines.module';
+import { ToolingsModule } from './modules/process/toolings/toolings.module';
 import { RoutineModule } from './modules/configuration/routines/routine.module';
 import { ActionModule } from './modules/configuration/actions/action.module';
 import { RoutineActionModule } from './modules/configuration/routine-action/routine-action.module';
@@ -75,6 +76,7 @@ import { ProfileOperationModule } from './modules/access-control/profile-operati
 		AuthenticationModule,
 		ProfilesModule,
 		MachinesModule,
+		ToolingsModule,
 		RoutineModule,
 		ActionModule,
 		RoutineActionModule,
