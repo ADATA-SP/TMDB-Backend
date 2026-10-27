@@ -1,4 +1,5 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Request } from 'express';
+import { Body, Controller, Post , Req } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import {
 	ApiBadGatewayResponse,
@@ -100,8 +101,8 @@ export class AuthenticationController {
 			},
 		},
 	})
-	ssoSignIn(@Body() ssoSignInDto: SsoSignInDto) {
-		return this.authenticationService.ssoSignIn(ssoSignInDto);
+	ssoSignIn(@Body() ssoSignInDto: SsoSignInDto, @Req() request: Request) {
+		return this.authenticationService.ssoSignIn(ssoSignInDto, request);
 	}
 
 	@Post('whoami')

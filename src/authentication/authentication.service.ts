@@ -1,3 +1,4 @@
+import { Request } from 'express'
 import {
 	ForbiddenException,
 	Injectable,
@@ -28,9 +29,9 @@ export class AuthenticationService {
 		private readonly jwtService: JwtService,
 	) {}
 
-	async ssoSignIn(ssoSignInDto: SsoSignInDto) {
+	async ssoSignIn(ssoSignInDto: SsoSignInDto, request: Request) {
 		const portalUser =
-			await this.portalSsoService.exchangeCode(ssoSignInDto);
+			await this.portalSsoService.exchangeCode(ssoSignInDto, request);
 
 		const profile = await this.findProfileFromPortal(portalUser.profiles);
 
@@ -133,6 +134,7 @@ export class AuthenticationService {
 	private async syncPortalUser(portalUser: PortalUser, profileId: number) {
 		const data = {
 			name: portalUser.name,
+			username: portalUser.username,
 			email: portalUser.email,
 			portal_user_id: portalUser.id,
 			profile_id: profileId,

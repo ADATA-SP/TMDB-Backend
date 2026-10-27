@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import {
 	BadGatewayException,
 	Injectable,
@@ -15,13 +16,21 @@ const INVALID_ACCESS_MESSAGE =
 export class PortalSsoService {
 	private readonly logger = new Logger(PortalSsoService.name);
 
-	async exchangeCode(ssoSignInDto: SsoSignInDto): Promise<PortalUser> {
-		if (ssoSignInDto.system_id !== Number(process.env.SSO_SYSTEM_ID))
-			throw new UnauthorizedException({
-				message: INVALID_ACCESS_MESSAGE,
-			});
+	private getPublicOrigin(request: Request): string {
+		const protocol =
+			request.get('x-forwarded-proto')?.split(',')[0].trim() ??
+			request.protocol;
 
-		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/api/systems/sso/exchange`;
+		const host =
+			request.get('x-forwarded-host')?.split(',')[0].trim() ??
+			request.get('host');
+
+		return `${protocol}://${host}`;
+	}
+
+	async exchangeCode(ssoSignInDto: SsoSignInDto, request: Request): Promise<PortalUser> {
+		const origin = this.getPublicOrigin(request);
+		const exchangeUrl = `${process.env.SSO_PORTAL_API_URL.replace(/\/+$/, '')}/systems/sso/exchange`;
 
 		try {
 			const response = await axios.post(
@@ -29,7 +38,7 @@ export class PortalSsoService {
 				{
 					code: ssoSignInDto.sso_code,
 					system_id: ssoSignInDto.system_id,
-					origin: process.env.SSO_FRONTEND_ORIGIN,
+					origin,
 					state: ssoSignInDto.state,
 					client_nonce: ssoSignInDto.client_nonce,
 				},
@@ -62,19 +71,18 @@ export class PortalSsoService {
 	}
 
 	private parsePortalUser(user: unknown): PortalUser {
-		const data = (user ?? {}) as Record<string, unknown>;
-		const id =
-			typeof data.id === 'number' ? String(data.id) : this.text(data.id);
+		const data = (user ?? {}) as Record<string, any>;
+		const id = typeof data.id === 'number' ? String(data.id) : this.text(data.id);
 		const email = this.text(data.email);
-		const firstName = this.text(data.first_name);
-		const lastName =
-			typeof data.last_name === 'string' ? data.last_name : '';
+		const name = data.last_name;
+		const username = data.login;
 		const profiles = data.profiles;
 
 		if (
 			!id ||
 			!email ||
-			!firstName ||
+			!name ||
+			!username ||
 			!Array.isArray(profiles) ||
 			profiles.some((profile) => typeof profile !== 'string')
 		) {
@@ -89,7 +97,8 @@ export class PortalSsoService {
 		return {
 			id,
 			email: email.toLowerCase(),
-			name: `${firstName} ${lastName.trim()}`.trim(),
+			name,
+			username, 
 			profiles: profiles as string[],
 		};
 	}
