@@ -1,6 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import apiMesSystem from '../../../common/services/api/mes';
-import { MachineMes } from '../../../common/types';
+import {
+	MachineMes,
+	MesAvailableTooling,
+	MesMachineTooling,
+	MesMachineToolingFilters,
+	MesTooling,
+	MesToolingFilters,
+	MesToolingHistory,
+} from '../../../common/types';
 
 @Injectable()
 export class MesSystemService {
@@ -41,6 +49,52 @@ export class MesSystemService {
 						'Ocorreu um erro ao consultar a listagem de máquinas do MES',
 				});
 			});
+	}
+
+	async findToolings(filters: MesToolingFilters = {}) {
+		return this.findToolingData<MesTooling>(
+			'apimaster/sao/tmdb/toolings',
+			filters,
+			'Ocorreu um erro ao consultar os toolings do MES',
+		);
+	}
+
+	async findAvailableToolings(filters: MesToolingFilters = {}) {
+		return this.findToolingData<MesAvailableTooling>(
+			'apimaster/sao/tmdb/toolings/available',
+			filters,
+			'Ocorreu um erro ao consultar os toolings disponíveis do MES',
+		);
+	}
+
+	async findToolingsHistory(filters: MesMachineToolingFilters = {}) {
+		return this.findToolingData<MesToolingHistory>(
+			'apimaster/sao/tmdb/toolings/history',
+			filters,
+			'Ocorreu um erro ao consultar o histórico de toolings do MES',
+		);
+	}
+
+	async findMachineToolings(filters: MesMachineToolingFilters = {}) {
+		return this.findToolingData<MesMachineTooling>(
+			'apimaster/sao/tmdb/machines/toolings',
+			filters,
+			'Ocorreu um erro ao consultar os toolings das máquinas do MES',
+		);
+	}
+
+	private async findToolingData<T>(
+		path: string,
+		params: MesToolingFilters | MesMachineToolingFilters,
+		errorMessage: string,
+	): Promise<T[]> {
+		return this.executeLogin(async () => {
+			const response = await apiMesSystem.get<T[]>(path, { params });
+			return Array.isArray(response?.data) ? response.data : [];
+		}).catch((error) => {
+			console.error(error?.data || error?.message);
+			throw new BadRequestException({ message: errorMessage });
+		});
 	}
 
 	private isTokenExpired(token: string): boolean {
